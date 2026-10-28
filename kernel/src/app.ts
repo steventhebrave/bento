@@ -36,6 +36,13 @@ export interface AppConfig {
    *  kernel uses DEFAULT_SYNC_HOST in sync/online.ts. The localStorage
    *  'bento-sync-url' dev override wins over both. */
   syncHost?: string
+  /** Signed self-update. Optional: absent = on. A FORK whose shell carries
+   *  features the upstream shell lacks sets false, because an update re-splices
+   *  the document into the publisher's shell and every field that shell does
+   *  not understand stops playing. Off = no launch check, no manual check, no
+   *  update request of any kind; language packs are unaffected (they never
+   *  re-splice the document). */
+  selfUpdate?: boolean
 }
 
 let config: AppConfig | null = null

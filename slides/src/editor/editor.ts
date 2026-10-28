@@ -13,7 +13,7 @@ import {
   type ChartElement, type ShapeKind, type Slide, type SlideElement, type TableElement } from '../model'
 import { THEME_CHOICES, setTheme, themeChoice } from '../../../kernel/src/theme.ts'
 import type { InPlaceOutcome } from '../update'
-import { APP_VERSION, applyUpdate, applyUpdateInPlace, autoCheckEnabled, canUpdateInPlace, checkForUpdates, compareVersions, offlineEnabled, sandboxed, setAutoCheck, setOffline } from '../update'
+import { APP_VERSION, applyUpdate, applyUpdateInPlace, autoCheckEnabled, canUpdateInPlace, checkForUpdates, compareVersions, offlineEnabled, sandboxed, selfUpdateEnabled, setAutoCheck, setOffline } from '../update'
 import { CHART_PRESETS } from '../charts'
 import { cssColor, renderSlide, renderThumbnail } from '../render'
 import { openExportImagesDialog } from './exportimages'
@@ -3695,7 +3695,9 @@ export class Editor {
 
     const status = div('ed-about-status')
     status.textContent =
-      sandboxed()
+      !selfUpdateEnabled()
+        ? t('Self-update is off in this build: it would move the deck into the upstream app, which cannot play its animations. This file carries its own app and works offline as is.')
+        : sandboxed()
         ? t('Updates are not checked inside an embedded view — open the file in a browser tab to check.')
         : this.lastAutoCheck?.status === 'current'
         ? t("Checked automatically at launch — you're on the latest version (v{v}).", { v: APP_VERSION })
@@ -3708,6 +3710,7 @@ export class Editor {
     checkB.className = 'ed-btn'
     checkB.textContent = t('Check for updates')
     checkB.disabled = sandboxed() // nothing to check from inside an embedded view
+    if (!selfUpdateEnabled()) checkB.hidden = true
     checkB.addEventListener('click', async () => {
       checkB.disabled = true
       status.textContent = t('Checking…')
@@ -3866,7 +3869,7 @@ export class Editor {
     autoCb.checked = autoCheckEnabled()
     autoCb.addEventListener('change', () => setAutoCheck(autoCb.checked))
     autoRow.append(autoCb, document.createTextNode(' ' + t('Check for updates automatically at launch')))
-    box.appendChild(autoRow)
+    if (selfUpdateEnabled()) box.appendChild(autoRow)
 
     // photos shrink at insert (editor/shrink.ts) — an authoring preference for
     // this browser, like the update check; never in the document
@@ -3977,7 +3980,7 @@ export class Editor {
     })
     document.addEventListener('keydown', onKey, true)
     document.body.appendChild(overlay)
-    if (runCheck || this.updateFound) checkB.click()
+    if (selfUpdateEnabled() && (runCheck || this.updateFound)) checkB.click()
   }
 
   /** About ▸ Compress pictures in this deck…: every picture runs through the

@@ -47,6 +47,10 @@ configureApp({
   appId: 'bento-slides',
   appName: 'bento/slides',
   manifestUrl: 'https://bento.page/releases/slides/manifest.json',
+  // FORK: this shell carries the animation sequence, morph easing and the code
+  // layer. An update would re-splice the deck into upstream's shell, which
+  // plays none of them — so self-update is off (docs/DECISIONS.md, fork).
+  selfUpdate: false,
 })
 
 // Every save writes a static rendering of page one into the shell, so file

@@ -43,7 +43,13 @@ export const APP_VERSION: string = typeof __APP_VERSION__ !== 'undefined' ? __AP
  */
 export { offlineEnabled, setOffline, OfflineError, startNetGuard, sandboxed, SandboxedError } from './net.ts'
 
-export const autoCheckEnabled = (): boolean => lsGet('bento-auto-check') !== 'off'
+/** Is signed self-update on for this build (configureApp `selfUpdate`)? */
+export const selfUpdateEnabled = (): boolean => {
+  try { return appConfig().selfUpdate !== false } catch { return true }
+}
+const SELF_UPDATE_OFF = 'self-update is turned off in this build'
+
+export const autoCheckEnabled = (): boolean => selfUpdateEnabled() && lsGet('bento-auto-check') !== 'off'
 export const setAutoCheck = (on: boolean): void => {
   if (on) lsDel('bento-auto-check')
   else lsSet('bento-auto-check', 'off')
@@ -205,6 +211,8 @@ async function verifyManifest(raw: string): Promise<ReleaseInfo> {
 
 /** Ask the release origin for the latest version. */
 export async function checkForUpdates(manifestUrl?: string): Promise<UpdateCheck> {
+  // before anything touches the network: an off build asks nobody
+  if (!selfUpdateEnabled()) return { status: 'error', message: SELF_UPDATE_OFF }
   // The localStorage dev override is honoured only from a real, isolated origin.
   // On file:// (and opaque origins) storage is shared with every other local
   // document, so a malicious deck could plant an override that steers this deck's
@@ -244,6 +252,7 @@ export function registerUpdatePrepare(fn: (version: string) => Promise<void>): v
 }
 
 export async function buildUpdatedFile(release: ReleaseInfo, doc: KernelDoc): Promise<string> {
+  if (!selfUpdateEnabled()) throw new Error(SELF_UPDATE_OFF)
   const res = await netFetch(release.url, { cache: 'no-store' })
   if (!res.ok) throw new Error(`downloading the update failed (${res.status})`)
   const bytes = await res.arrayBuffer()

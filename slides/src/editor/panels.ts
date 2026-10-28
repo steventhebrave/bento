@@ -23,6 +23,7 @@ import { revealInOrder, revealTogether, removeReveal, readingOrder, type StepPat
 import { usesAnim } from '../animseq'
 import { effectDef } from '../effects/index.ts'
 import { addEffects, dropDangling, removeEffects } from './animedit'
+import { easeControl } from './easecurve'
 import { stepOf } from '../steps'
 import { ICONS } from '../icons'
 import { LayersUI } from './layers'
@@ -373,6 +374,22 @@ export class PropsPanel {
       hint.className = 'ed-hint'
       hint.innerHTML = t('<b>Morph</b> animates elements that appear on both this slide and the previous one (copy a slide, then move things around).')
       this.host.appendChild(hint)
+      // this slide's own morph timing; blank = the deck's (Slideshow section)
+      const deckSecs = this.store.doc.present?.morphSeconds ?? 0.65
+      const deckEase = this.store.doc.present?.morphEase ?? 'power2.inOut'
+      this.row('Morph duration', this.secondsField(slide.morphSeconds, deckSecs, (v) =>
+        this.editSlideAttrs(slideId, (s: Slide) => { if (v === null) delete s.morphSeconds; else s.morphSeconds = v }, true)))
+      this.row('Morph easing', easeControl({
+        value: slide.morphEase,
+        fallback: deckEase,
+        inheritLabel: t('Deck default'),
+        seconds: () => this.store.slideById(slideId)?.morphSeconds ?? deckSecs,
+        open: this.morphCurveOpen,
+        onChange: (e, final) => {
+          if (!final) return
+          this.editSlideAttrs(slideId, (s: Slide) => { if (e === null) delete s.morphEase; else s.morphEase = e }, true)
+        },
+      })).querySelector('.ed-ease-toggle')?.addEventListener('click', () => { this.morphCurveOpen = !this.morphCurveOpen })
     }
 
     // Deck-wide slideshow chrome, in its own section: these are not properties
@@ -411,6 +428,25 @@ export class PropsPanel {
     // so the visible ones do not renumber as you toggle slides during rehearsal.
     this.row('Number hidden slides', this.toggle(pres.numberHidden ?? false,
       (v) => setPresent('numberHidden', v, false)))
+    // the deck's morph timing — every morph slide without its own uses these
+    const setPresentValue = (k: 'morphSeconds' | 'morphEase', v: unknown) =>
+      this.edit(() => {
+        const d = this.store.doc
+        const cur = { ...(d.present ?? {}) } as Record<string, unknown>
+        if (v === null || v === undefined) delete cur[k]
+        else cur[k] = v
+        if (Object.keys(cur).length) d.present = cur as BentoDoc['present']
+        else delete d.present
+      }, true)
+    this.row('Morph duration', this.secondsField(pres.morphSeconds, 0.65, (v) => setPresentValue('morphSeconds', v)))
+    this.row('Morph easing', easeControl({
+      value: pres.morphEase,
+      fallback: 'power2.inOut',
+      inheritLabel: t('Default'),
+      seconds: () => this.store.doc.present?.morphSeconds ?? 0.65,
+      open: this.morphCurveOpen,
+      onChange: (e, final) => { if (final) setPresentValue('morphEase', e) },
+    })).querySelector('.ed-ease-toggle')?.addEventListener('click', () => { this.morphCurveOpen = !this.morphCurveOpen })
 
 
     // interactivity: naming, state-of, hover focus
@@ -2423,6 +2459,26 @@ export class PropsPanel {
   private setNum(id: string, key: 'x' | 'y' | 'w' | 'h' | 'rotation' | 'opacity', v: number) {
     if (Number.isNaN(v)) return
     this.mutate(id, (el) => { (el as any)[key] = v }, true)
+  }
+
+  /** the morph curve editors stay open across the rebuild every edit causes */
+  private morphCurveOpen = false
+
+  /** Seconds, with blank meaning "inherit `fallback`" (shown as the placeholder). */
+  private secondsField(value: number | undefined, fallback: number, onChange: (v: number | null) => void): HTMLElement {
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.step = '0.05'
+    input.min = '0.1'
+    input.max = '30'
+    input.placeholder = `${fallback}`
+    input.value = value === undefined ? '' : String(value)
+    input.addEventListener('change', () => {
+      if (input.value.trim() === '') { onChange(null); return }
+      const v = parseFloat(input.value)
+      if (Number.isFinite(v)) onChange(Math.min(30, Math.max(0.1, Math.round(v * 100) / 100)))
+    })
+    return input
   }
 
   private section(title: string) {

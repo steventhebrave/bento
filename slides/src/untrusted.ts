@@ -396,6 +396,16 @@ const animEffect = shape(MODEL_KEYS.animEffect, {
   script: cssValue(), params: scriptParams,
 }, ['el', 'type'])
 
+/**
+ * One effect typed into the animation pane's JSON box: held to the same rule
+ * as a paste (unknown keys and bad values dropped, never repaired), with the
+ * drops reported so the pane can say exactly what it did not keep.
+ */
+export function sanitizeEffect(value: unknown): { effect: import('./model').AnimEffect | null; dropped: Dropped[] } {
+  const { result, dropped } = withDropReport(() => animEffect(value))
+  return { effect: result === DROP ? null : (result as import('./model').AnimEffect), dropped }
+}
+
 const tableStyle = shape(MODEL_KEYS.tableStyle, {
   headerBg: color(), headerColor: color(), zebra: color(),
   borderColor: color(), borderWidth: num(0, 1e3),

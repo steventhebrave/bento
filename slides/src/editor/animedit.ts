@@ -151,6 +151,30 @@ export function isCustom(fx: AnimEffect): boolean {
   return false
 }
 
+/**
+ * "Reset to UI-editable": keep exactly what the panel can show — the common
+ * timing keys and the type's own fields, minus keyframes. Everything else goes.
+ * The pane asks first; this just does it.
+ */
+export function resetToEditable(slide: Slide, id: string) {
+  const fx = ensureAnim(slide).find((f) => f.id === id)
+  const def = fx && effectDef(fx.type)
+  if (!fx || !def) return
+  const keep = new Set<string>([...COMMON_KEYS, ...def.owns.filter((k) => k !== 'keys')])
+  for (const k of Object.keys(fx)) if (!keep.has(k)) delete (fx as unknown as Record<string, unknown>)[k]
+  for (const [k, v] of Object.entries(defaultsFor(fx.type))) {
+    if ((fx as unknown as Record<string, unknown>)[k] === undefined) (fx as unknown as Record<string, unknown>)[k] = v
+  }
+}
+
+/** Replace one effect wholesale (the JSON box), keeping its id and its place in the list. */
+export function replaceEffect(slide: Slide, id: string, next: AnimEffect) {
+  const list = ensureAnim(slide)
+  const i = list.findIndex((f) => f.id === id)
+  if (i < 0) return
+  list[i] = { ...next, id }
+}
+
 /** Seconds, rounded to the pane's 0.01 resolution and bounded. */
 export const clampSecs = (v: number): number =>
   Number.isFinite(v) ? Math.min(3600, Math.max(0, Math.round(v * 100) / 100)) : 0

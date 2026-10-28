@@ -175,6 +175,13 @@ jobs:
         # 15°), scrub painting the canvas, legacy conversion on first edit,
         # delete dropping effects.
         run: node scripts/test-slides-anim-pane-browser.mjs
+      - name: Animation easing and the JSON box in Chromium
+        # The curve editor (presets, two handles, numeric fields, live
+        # preview), per-slide and deck morph duration/easing in the panel, a
+        # show measured following the deck curve, and the pane's JSON box:
+        # custom rows, unknown keys kept on existing effects and dropped on new
+        # ones (and reported), Reset to UI-editable.
+        run: node scripts/test-slides-anim-easing-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

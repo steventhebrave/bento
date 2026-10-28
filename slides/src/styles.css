@@ -3021,3 +3021,36 @@ input.ed-toggle { width: 16px; height: 16px; accent-color: #5E7699; cursor: poin
   position: absolute; pointer-events: none; white-space: nowrap; font-size: 11px; font-variant-numeric: tabular-nums;
   background: var(--ink); color: var(--surface); border-radius: 4px; padding: 1px 5px;
 }
+
+/* the easing control (editor/easecurve.ts): a preset menu and a curve editor */
+.ed-ease { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; }
+.ed-ease-top { display: flex; gap: 4px; align-items: center; }
+.ed-ease-top select { flex: 1; min-width: 0; }
+.ed-ease-toggle { padding: 2px 7px; font-size: 13px; }
+.ed-ease-toggle.on { background: var(--chrome-2); }
+.ed-row:has(.ed-ease-panel:not([hidden])) .ed-ease { flex-basis: 100%; }
+.ed-ease-panel { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.ed-ease-panel[hidden] { display: none; }
+.ed-ease-plot { background: var(--field); border: 1px solid var(--line); border-radius: 8px; touch-action: none; }
+.ed-ease-square { fill: var(--chrome); stroke: var(--line); }
+.ed-ease-diag { stroke: var(--line); stroke-dasharray: 3 3; }
+.ed-ease-arm { stroke: var(--muted); stroke-width: 1; }
+.ed-ease-curve { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.ed-ease-handle { fill: var(--surface); stroke: var(--ink); stroke-width: 2; cursor: grab; }
+.ed-ease-handle.approx { stroke-dasharray: 2 2; }
+.ed-ease-nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; }
+/* (beats the panel's fixed .ed-row number width — these share one row four ways) */
+.ed-row .ed-ease-nums input[type='number'], .ed-ease-nums input { width: 100%; min-width: 0; font-size: 11.5px; padding-inline: 4px; }
+.ed-ease-track { position: relative; width: 100%; height: 22px; border-radius: 6px; background: var(--chrome); }
+.ed-ease-chip { position: absolute; top: 2px; left: 0; width: 18px; height: 18px; border-radius: 4px; background: var(--accent); }
+
+/* the animation pane's JSON box (Tier 1) */
+.ed-anim-jsonhead { cursor: pointer; }
+.ed-anim-jsonhead::after { content: ' ▾'; }
+.ed-anim-jsonhead.closed::after { content: ' ▸'; }
+.ed-anim-json { width: 100%; box-sizing: border-box; font: 11.5px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; resize: vertical; }
+.ed-anim-jsonmsg { font-size: 11.5px; color: var(--muted); white-space: pre-wrap; }
+.ed-anim-jsonmsg.error { color: #c4473f; }
+:root[data-theme="dark"] .ed-anim-jsonmsg.error { color: #f08a83; }
+.ed-anim-customnote { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.ed-anim-reset { padding: 3px 8px; font-size: 12px; background: var(--surface); border-color: var(--line); }

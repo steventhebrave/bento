@@ -23,19 +23,13 @@ import type { AnimUI } from './animui'
 import type { AnimPreview, PreviewMode } from './animpreview'
 import { FIELDS, type FieldKit } from './animfields'
 import {
-  addEffects, changeType, clampSecs, isCustom, moveEffects, paneList, removeEffects, setFields, setTiming, slideTimeline,
+  addEffects, changeType, clampSecs, isCustom, moveEffects, paneList, removeEffects, replaceEffect, resetToEditable, setFields, setTiming, slideTimeline,
   type TimingPatch,
 } from './animedit'
+import { sanitizeEffect } from '../untrusted'
+import { COMMON_KEYS } from '../effects/index.ts'
 import { isBezier } from '../../../kernel/src/ease.ts'
-
-/** Easing presets in the order the menu offers them, with readable names (translated at render). */
-const EASE_CHOICES: Array<[string, string]> = [
-  ['linear', 'Linear'],
-  ['power1.out', 'Ease out · gentle'], ['power2.out', 'Ease out'], ['power3.out', 'Ease out · strong'],
-  ['power1.in', 'Ease in · gentle'], ['power2.in', 'Ease in'], ['power3.in', 'Ease in · strong'],
-  ['power1.inOut', 'Ease in-out · gentle'], ['power2.inOut', 'Ease in-out'], ['power3.inOut', 'Ease in-out · strong'],
-  ['sine.inOut', 'Sine in-out'], ['back.out', 'Overshoot'], ['back.in', 'Anticipate'], ['back.inOut', 'Anticipate + overshoot'],
-]
+import { easeControl } from './easecurve'
 
 const TRIGGERS: Array<[NonNullable<AnimEffect['trigger']>, string]> = [
   ['click', 'On click'], ['with', 'With previous'], ['after', 'After previous'],
@@ -67,6 +61,11 @@ export class AnimPane {
   private dragId: string | null = null
   private scrubMode: PreviewMode = 'slide'
   private scrubClick = 0
+  /** the curve editor stays open across the rebuild every edit causes */
+  private easeOpen = false
+  /** the JSON box likewise, and the last message it showed */
+  private jsonOpen = false
+  private jsonMsg: { id: string; text: string; error: boolean } | null = null
   private scrub: HTMLInputElement | null = null
   private scrubOut: HTMLElement | null = null
   private playBtn: HTMLButtonElement | null = null
@@ -492,28 +491,110 @@ export class AnimPane {
       const pe = plan.effects.find((p) => p.fx.id === one.id)
       if (pe) kit.hint(t('Plays {start}–{end} into {click}.', { start: fmt(pe.start), end: fmt(pe.end), click: pe.group ? t('click {n}', { n: String(pe.group) }) : t('the arrival') }))
     }
+    if (one) this.buildJson(box, one)
     const actions = div('ed-anim-actions')
     actions.appendChild(button(sel.length > 1 ? t('Remove {n} effects', { n: String(sel.length) }) : t('Remove effect'), t('Delete (⌫) with the list focused does the same'), () => this.remove(), 'ed-btn ed-btn-danger'))
     box.appendChild(actions)
     return box
   }
 
+  /**
+   * Tier 1 of the code layer: the effect as JSON. Anything the format holds
+   * can be written here — keyframes above all — and the row then shows as
+   * "custom": its timing still edits in the panel, and nothing else is touched.
+   * A key this build does not know survives an edit as long as it was already
+   * there and is left as it was; a NEW unknown key or a bad value is dropped,
+   * as at a paste, and the box says so.
+   */
+  private buildJson(box: HTMLElement, fx: AnimEffect) {
+    const custom = isCustom(fx)
+    const def = effectDef(fx.type)
+    if (custom) {
+      const known = new Set<string>([...COMMON_KEYS, ...(def?.owns ?? [])])
+      const extra = Object.keys(fx).filter((k) => !known.has(k) || (k === 'keys' && Array.isArray(fx.keys) && fx.keys.length))
+      const note = div('ed-anim-note ed-anim-customnote')
+      note.textContent = def
+        ? t('Custom: {keys} — the panel cannot show these, and leaves them exactly as they are. Timing still edits above.', { keys: extra.join(', ') })
+        : t('This effect type ({type}) is not one this app plays; it keeps its place and its click. Edit it as JSON, or change its type.', { type: fx.type })
+      if (def) {
+        note.appendChild(button(t('Reset to UI-editable'), t('Drop what the panel cannot show (keyframes and unknown keys)'), () => {
+          if (!confirm(t('Drop {keys} from this effect? Its timing and basic settings stay; ⌘Z undoes it.', { keys: extra.join(', ') }))) return
+          this.edit((s) => resetToEditable(s, fx.id))
+        }, 'ed-btn ed-anim-reset'))
+      }
+      box.insertBefore(note, box.children[1] ?? null)
+    }
+    const h = document.createElement('h3')
+    h.className = 'ed-section ed-anim-jsonhead'
+    h.textContent = t('Advanced (JSON)')
+    h.classList.toggle('closed', !this.jsonOpen)
+    h.addEventListener('click', () => { this.jsonOpen = !this.jsonOpen; this.refresh(true) })
+    box.appendChild(h)
+    if (!this.jsonOpen) return
+    const ta = document.createElement('textarea')
+    ta.className = 'ed-anim-json'
+    ta.spellcheck = false
+    ta.rows = Math.min(16, JSON.stringify(fx, null, 2).split('\n').length + 1)
+    ta.value = JSON.stringify(fx, null, 2)
+    box.appendChild(ta)
+    const msg = div('ed-anim-jsonmsg')
+    if (this.jsonMsg?.id === fx.id) { msg.textContent = this.jsonMsg.text; msg.classList.toggle('error', this.jsonMsg.error) }
+    const row = div('ed-anim-actions')
+    row.appendChild(button(t('Apply'), t('Replace this effect with the JSON above'), () => this.applyJson(fx, ta.value), 'ed-btn ed-btn-primary'))
+    box.append(row, msg)
+  }
+
+  private applyJson(fx: AnimEffect, text: string) {
+    let parsed: unknown
+    try { parsed = JSON.parse(text) } catch (err) {
+      this.jsonMsg = { id: fx.id, text: t('Not JSON: {m}', { m: (err as Error).message }), error: true }
+      this.refresh(true)
+      return
+    }
+    const { effect, dropped } = sanitizeEffect(parsed)
+    if (!effect) {
+      this.jsonMsg = { id: fx.id, text: t('Not an effect: it needs at least "el" and a known "type". {why}', { why: dropped.map((d) => `${d.path} ${d.reason}`).join('; ') }), error: true }
+      this.refresh(true)
+      return
+    }
+    // keep what was already there and is unchanged, even if this build does not know it
+    const before = fx as unknown as Record<string, unknown>
+    const after = parsed as Record<string, unknown>
+    const kept: string[] = []
+    for (const d of dropped) {
+      const key = d.path.split('/').filter(Boolean)[0]
+      if (key && key in before && JSON.stringify(before[key]) === JSON.stringify(after[key])) {
+        ;(effect as unknown as Record<string, unknown>)[key] = before[key]
+        kept.push(key)
+      }
+    }
+    const lost = dropped.filter((d) => !kept.includes(d.path.split('/').filter(Boolean)[0]))
+    if (!this.store.slide.elements.some((e) => e.id === effect.el)) {
+      this.jsonMsg = { id: fx.id, text: t('"{el}" is not an element on this slide.', { el: effect.el }), error: true }
+      this.refresh(true)
+      return
+    }
+    this.jsonMsg = { id: fx.id, text: lost.length ? t('Applied. Not kept: {list}', { list: lost.map((d) => `${d.path} (${d.reason})`).join('; ') }) : t('Applied.'), error: lost.length > 0 }
+    this.edit((s) => replaceEffect(s, fx.id, effect))
+  }
+
   private easeSelect(sel: AnimEffect[]): HTMLElement {
-    const key = (e: Ease | undefined) => (e === undefined ? '' : isBezier(e) ? 'custom' : String(e))
+    const key = (e: Ease | undefined) => (e === undefined ? '' : isBezier(e) ? e.join(',') : String(e))
     const keys = sel.map((f) => key(f.ease))
     const mixed = !keys.every((k) => k === keys[0])
-    const opts: Array<[string, string]> = []
-    if (mixed) opts.push(['mixed', t('(mixed)')])
     const def = effectDef(sel[0].type)
-    opts.push(['', t('Default ({name})', { name: t(EASE_CHOICES.find(([k]) => k === def?.ease)?.[1] ?? String(def?.ease ?? 'linear')) })])
-    for (const [k, label] of EASE_CHOICES) opts.push([k, t(label)])
-    if (keys.includes('custom')) opts.push(['custom', t('Custom curve')])
-    else if (!mixed && keys[0] && !EASE_CHOICES.some(([k]) => k === keys[0])) opts.push([keys[0], keys[0]])
-    const s = this.kit(document.createElement('div')).select(opts, mixed ? 'mixed' : keys[0], (v) => {
-      if (v === 'mixed' || v === 'custom') return
-      this.timing({ ease: v === '' ? null : v })
+    const dur = sel[0].duration ?? def?.duration ?? 0.5
+    const ctl = easeControl({
+      value: mixed ? undefined : sel[0].ease,
+      fallback: def?.ease ?? 'linear',
+      inheritLabel: mixed ? t('(mixed)') : t('Default'),
+      seconds: () => dur,
+      open: this.easeOpen,
+      // a drag previews in the control only; the curve is committed on release
+      onChange: (e, final) => { if (final) this.timing({ ease: e }) },
     })
-    return s
+    ctl.querySelector('.ed-ease-toggle')?.addEventListener('click', () => { this.easeOpen = !this.easeOpen })
+    return ctl
   }
 
   private seconds(value: number | null, onChange: (v: number) => void, min = 0): HTMLInputElement {

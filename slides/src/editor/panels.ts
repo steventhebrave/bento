@@ -24,6 +24,8 @@ import { usesAnim } from '../animseq'
 import { effectDef } from '../effects/index.ts'
 import { addEffects, dropDangling, removeEffects } from './animedit'
 import { easeControl } from './easecurve'
+import type { EditorCode } from './codeui'
+import { codeEnabled } from '../code/host'
 import { stepOf } from '../steps'
 import { ICONS } from '../icons'
 import { LayersUI } from './layers'
@@ -206,6 +208,17 @@ export class PropsPanel {
         mutate(slide)
       }, final)
     }
+  }
+
+  /** the deck's code (FORK): set by the editor after construction */
+  code?: EditorCode
+
+  /** A script's metadata or error changed: rebuild what reads it (never under a focused field). */
+  codeChanged() {
+    const els = this.store.selectedElements
+    const slide = this.store.slide
+    const reads = els.some((e) => e.type === 'canvas') || (els.length > 0 && (slide.anim ?? []).some((fx) => fx?.type === 'script' && els.some((e) => e.id === fx.el)))
+    if (reads) this.rebuild()
   }
 
   private rebuild(force = false) {
@@ -586,6 +599,7 @@ export class PropsPanel {
     if (el.type === 'media') this.buildMediaProps(el)
     if (el.type === 'code') this.buildCodeProps(el)
     if (el.type === 'embed') this.buildEmbedProps(el)
+    if (el.type === 'canvas') this.buildCanvasProps(el)
 
     this.section(t('Position & size'))
     const geo = document.createElement('div')
@@ -600,6 +614,7 @@ export class PropsPanel {
         this.setNum(el.id, 'opacity', Math.min(Math.max(v / 100, 0), 1))),
     )
     this.host.appendChild(geo)
+    this.markDriven(el, geo)
 
     this.row('Role', this.select(
       ['none', 'title', 'subtitle', 'body', 'kicker'],
@@ -2459,6 +2474,142 @@ export class PropsPanel {
   private setNum(id: string, key: 'x' | 'y' | 'w' | 'h' | 'rotation' | 'opacity', v: number) {
     if (Number.isNaN(v)) return
     this.mutate(id, (el) => { (el as any)[key] = v }, true)
+  }
+
+  /**
+   * FORK — which of this element's values a script effect on this slide also
+   * drives during the show (its `meta.drives`; a script that declares nothing
+   * may drive any of them). The fields stay editable — they set where the
+   * element IS; the badge says the show will move it from there.
+   */
+  private markDriven(el: SlideElement, geo: HTMLElement) {
+    const slide = this.store.slide
+    const scripts = (slide.anim ?? []).filter((fx) => fx?.type === 'script' && fx.el === el.id && typeof fx.script === 'string')
+    if (!scripts.length) return
+    const by = new Map<string, string[]>()
+    for (const fx of scripts) {
+      const name = fx.script as string
+      const drives = this.code?.meta(name)?.drives ?? ['x', 'y', 'rotation', 'scale', 'opacity', 'fill', 'color']
+      for (const k of drives) by.set(k, [...(by.get(k) ?? []), name])
+    }
+    const fields: Array<[string, number]> = [['x', 0], ['y', 1], ['rotation', 4], ['opacity', 5]]
+    const minis = geo.querySelectorAll<HTMLElement>('.ed-mini')
+    for (const [key, i] of fields) {
+      const names = by.get(key)
+      const mini = minis[i]
+      if (!names || !mini) continue
+      mini.classList.add('ed-driven')
+      const badge = document.createElement('i')
+      badge.className = 'ed-driven-badge'
+      badge.textContent = 'ƒ'
+      mini.querySelector('span')?.appendChild(badge)
+      mini.title = t('Driven by script {names} during the show — this sets where it starts from.', { names: [...new Set(names)].join(', ') })
+    }
+    const all = [...by.keys()]
+    const hint = document.createElement('p')
+    hint.className = 'ed-hint ed-driven-hint'
+    hint.textContent = t('ƒ During the show, script effects also drive: {keys}.', { keys: all.join(', ') })
+    this.host.appendChild(hint)
+  }
+
+  /** FORK — a code canvas: its script, the script's parameters, its still. */
+  private buildCanvasProps(el: import('../model').CanvasElement) {
+    const code = this.code
+    const slideId = this.store.slide.id
+    const names = code ? code.scripts('canvas') : Object.keys(this.store.doc.scripts ?? {}).sort()
+    if (el.script && !names.includes(el.script)) names.unshift(el.script)
+    const sel = document.createElement('select')
+    if (!names.length) names.push('')
+    for (const n of names) {
+      const o = document.createElement('option')
+      o.value = n
+      o.textContent = n || t('(none)')
+      sel.appendChild(o)
+    }
+    sel.value = el.script
+    sel.addEventListener('change', () => this.mutate(el.id, (e) => { (e as import('../model').CanvasElement).script = sel.value }, true))
+    this.row('Script', sel)
+    const btns = document.createElement('div')
+    btns.className = 'ed-row ed-canvas-btns'
+    const mk = (label: string, fn: () => void) => {
+      const b = document.createElement('button')
+      b.className = 'ed-btn'
+      b.textContent = label
+      b.addEventListener('click', fn)
+      btns.appendChild(b)
+      return b
+    }
+    mk(t('Edit code…'), () => code?.openEditor(el.script || undefined))
+    mk(t('New canvas script…'), () => code?.openEditor(undefined, 'canvas'))
+    this.host.appendChild(btns)
+
+    const say = (text: string, error = false) => {
+      const p = document.createElement('p')
+      p.className = 'ed-hint' + (error ? ' ed-code-error' : '')
+      p.textContent = text
+      this.host.appendChild(p)
+    }
+    const meta = code?.meta(el.script)
+    const err = code?.error(el.script)
+    if (!el.script || !this.store.doc.scripts?.[el.script]) say(t('No script called “{name}” in this deck — the canvas shows its still.', { name: el.script || '—' }), true)
+    else if (!codeEnabled()) say(t('Deck code is off in this browser — the canvas shows its still picture.'))
+    else if (err) say(err, true)
+    else if (meta?.kind && meta.kind !== 'canvas') say(t('“{name}” is an effect script, not a canvas script.', { name: el.script }), true)
+
+    if (meta?.params && Object.keys(meta.params).length) {
+      this.section(t('Parameters'))
+      code!.paramRows(meta, el.params, (label, input) => {
+        const row = document.createElement('label')
+        row.className = 'ed-row'
+        const span = document.createElement('span')
+        span.textContent = label
+        row.append(span, input)
+        this.host.appendChild(row)
+      }, (key, v) => this.mutate(el.id, (e) => {
+        const c = e as import('../model').CanvasElement
+        const params = { ...(c.params ?? {}) }
+        if (v === null) delete params[key]
+        else params[key] = v
+        if (Object.keys(params).length) c.params = params
+        else delete c.params
+      }, true))
+    }
+
+    this.row('Background', this.color(el.fill ?? 'transparent', (v, final) => this.mutate(el.id, (e) => {
+      const c = e as import('../model').CanvasElement
+      if (!v || v === 'transparent') delete c.fill
+      else c.fill = v
+    }, final)))
+
+    this.section(t('Still picture'))
+    say(t('Thumbnails, print and PDF show this still — and so does anyone who has deck code switched off. It is captured automatically when the drawing changes.'))
+    const at = el.posterAt ?? { click: 0, t: 0 }
+    const setAt = (patch: Partial<{ click: number; t: number }>) => this.mutate(el.id, (e) => {
+      const c = e as import('../model').CanvasElement
+      const next = { ...(c.posterAt ?? { click: 0, t: 0 }), ...patch }
+      if (!next.click && !next.t) delete c.posterAt
+      else c.posterAt = next
+    }, true)
+    const atClick = this.number(at.click, 1, (v) => { if (Number.isFinite(v)) setAt({ click: Math.max(0, Math.round(v)) }) })
+    ;(atClick as HTMLInputElement).min = '0'
+    this.row('Still at click', atClick)
+    const atT = this.number(at.t, 0.1, (v) => { if (Number.isFinite(v)) setAt({ t: Math.max(0, Math.min(3600, v)) }) })
+    ;(atT as HTMLInputElement).min = '0'
+    this.row('…seconds in', atT)
+    const again = document.createElement('div')
+    again.className = 'ed-row ed-canvas-btns'
+    const cap = document.createElement('button')
+    cap.className = 'ed-btn'
+    cap.textContent = t('Capture again')
+    cap.disabled = !codeEnabled() || !code
+    cap.addEventListener('click', async () => {
+      cap.disabled = true
+      const done = await code?.capture(slideId, el.id)
+      cap.disabled = false
+      if (!done) cap.textContent = t('Could not capture — check the script')
+    })
+    again.appendChild(cap)
+    this.host.appendChild(again)
   }
 
   /** the morph curve editors stay open across the rebuild every edit causes */

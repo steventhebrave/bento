@@ -12,6 +12,8 @@
  */
 
 import type { Store } from '../store'
+import type { Slide } from '../model'
+import type { ScriptSampler } from '../effects/index.ts'
 import { anim, type Tween } from '../anim'
 import { paintAt } from '../animplayer'
 import { planAnim } from '../animseq'
@@ -24,6 +26,11 @@ export interface PreviewHost {
   setPreviewing(on: boolean): void
   /** re-render the canvas from the model (ends the preview) */
   repaint(): void
+  /** the deck's code (FORK): one slide's baked script-effect motion */
+  scriptFor?(slide: Slide): ScriptSampler | undefined
+  /** …and its code canvases drawn live at (click, t), then stopped */
+  canvases?(slide: Slide, click: number, t: number): void
+  stopCanvases?(): void
 }
 
 export type PreviewMode = 'click' | 'slide'
@@ -86,6 +93,7 @@ export class AnimPreview {
     this.halt()
     this.active = false
     if (was) {
+      this.host.stopCanvases?.()
       this.host.setPreviewing(false)
       this.host.repaint()
     }
@@ -110,7 +118,8 @@ export class AnimPreview {
     }
     this.T = T
     const pos = this.mode === 'slide' ? locate(plan, T) : { click: this.click, t: T }
-    paintAt(surface, { ...slide, anim: list }, pos.click, pos.t, { plan })
+    paintAt(surface, { ...slide, anim: list }, pos.click, pos.t, { plan, script: this.host.scriptFor?.(slide) })
+    this.host.canvases?.(slide, pos.click, pos.t)
     this.onFrame?.(T, this.total())
   }
 }

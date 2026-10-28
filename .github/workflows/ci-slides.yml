@@ -199,6 +199,13 @@ jobs:
         # morph out starts from the script's end state; the shell's plaintext
         # <style> stays the splash's (a tag literal once doubled the file).
         run: node scripts/test-slides-code-present-browser.mjs
+      - name: The code layer in the editor in Chromium
+        # FORK. The chip and its switch; posters captured into assets and
+        # re-captured on a parameter change; the pane's script picker and
+        # generated parameter rows; preview layering script motion and a live
+        # canvas; driven-by marks; a rename following references in one undo;
+        # Insert → Code canvas; Stop working on the first click after an edit.
+        run: node scripts/test-slides-code-editor-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

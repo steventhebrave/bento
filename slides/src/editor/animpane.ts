@@ -22,6 +22,7 @@ import { labelFor } from './layerrows'
 import type { AnimUI } from './animui'
 import type { AnimPreview, PreviewMode } from './animpreview'
 import { FIELDS, type FieldKit } from './animfields'
+import type { EditorCode } from './codeui'
 import {
   addEffects, changeType, clampSecs, isCustom, moveEffects, paneList, removeEffects, replaceEffect, resetToEditable, setFields, setTiming, slideTimeline,
   type TimingPatch,
@@ -70,13 +71,21 @@ export class AnimPane {
   private scrubOut: HTMLElement | null = null
   private playBtn: HTMLButtonElement | null = null
 
-  constructor(private store: Store, private ui: AnimUI, private preview: AnimPreview, signal?: AbortSignal) {
+  /** a pointer is down inside the pane (see refresh) */
+  private pressing = false
+  /** the Add animation menu stays open across a rebuild */
+  private addOpen = false
+
+  constructor(private store: Store, private ui: AnimUI, private preview: AnimPreview, signal?: AbortSignal, private code?: EditorCode) {
     this.root = div('ed-anim')
+    this.root.addEventListener('pointerdown', () => { this.pressing = true }, { capture: true })
+    document.addEventListener('pointerup', () => { this.pressing = false }, { capture: true, signal })
+    document.addEventListener('pointercancel', () => { this.pressing = false }, { capture: true, signal })
     const offs = [
       // a doc edit respects a focused field; a slide or selection switch always
       // rebuilds — whatever was focused belongs to what is no longer shown
       store.on('doc', () => this.refresh()),
-      store.on('current', () => { this.preview.stop(); this.anchor = null; this.ui.select([]); this.refresh(true) }),
+      store.on('current', () => { this.preview.stop(); this.anchor = null; this.addOpen = false; this.ui.select([]); this.refresh(true) }),
       store.on('selection', () => this.followCanvasSelection()),
       ui.on(() => this.refresh(true)),
     ]
@@ -84,7 +93,7 @@ export class AnimPane {
     preview.onFrame = (T, total) => this.showScrub(T, total)
     // one listener for the pane's life (the header is rebuilt on every refresh)
     document.addEventListener('pointerdown', (ev) => {
-      for (const w of this.root.querySelectorAll('.ed-anim-add.open')) if (!w.contains(ev.target as Node)) w.classList.remove('open')
+      for (const w of this.root.querySelectorAll('.ed-anim-add.open')) if (!w.contains(ev.target as Node)) { w.classList.remove('open'); this.addOpen = false }
     }, { signal })
     preview.onStop = () => this.syncPlayButton()
   }
@@ -163,8 +172,14 @@ export class AnimPane {
     const focus = document.activeElement
     if (force && focus instanceof HTMLElement && this.root.contains(focus)) focus.blur()
     else if (focus instanceof HTMLElement && this.root.contains(focus) && focus.matches('input, select, textarea')) {
-      // never pull a field out from under the user; catch up when it blurs
-      focus.addEventListener('blur', () => this.refresh(), { once: true })
+      // never pull a field out from under the user; catch up when it blurs —
+      // but not mid-press: a click on a pane button blurs the field on
+      // pointerdown, and rebuilding then detaches the button before pointerup,
+      // so the click never happens (Stop needed two clicks after a field edit)
+      focus.addEventListener('blur', () => {
+        if (!this.pressing) { this.refresh(); return }
+        document.addEventListener('pointerup', () => setTimeout(() => this.refresh(), 0), { once: true, capture: true })
+      }, { once: true })
       return
     }
     const scroll = this.root.querySelector('.ed-anim-list')?.scrollTop ?? 0
@@ -201,18 +216,20 @@ export class AnimPane {
     const head = div('ed-anim-head')
     const wrap = div('ed-dropdown ed-anim-add')
     const can = this.store.selection.some((id) => this.store.element(id))
-    const addB = button(t('＋ Add animation'), can ? t('Animate the selected element(s) on the next click') : t('Select an element on the slide first'), () => wrap.classList.toggle('open'), 'ed-btn ed-btn-primary')
+    const addB = button(t('＋ Add animation'), can ? t('Animate the selected element(s) on the next click') : t('Select an element on the slide first'), () => { this.addOpen = wrap.classList.toggle('open') }, 'ed-btn ed-btn-primary')
     addB.disabled = !can
+    // open across the rebuild a just-blurred field triggers (see refresh)
+    if (can && this.addOpen) wrap.classList.add('open')
     const menu = div('ed-menu')
     const groups: Array<[string, string[]]> = [
       [t('Entrance'), ['appear', 'fade-in']], [t('Exit'), ['disappear', 'fade-out']],
-      [t('Emphasis'), ['spin']], [t('Motion'), ['move']],
+      [t('Emphasis'), ['spin']], [t('Motion'), ['move']], [t('Code'), ['script']],
     ]
     for (const [label, types] of groups) {
       menu.appendChild(div('ed-menu-label', label))
       for (const type of types) {
         const def = effectDef(type)!
-        menu.appendChild(button(t(def.label), '', () => { wrap.classList.remove('open'); this.add(type) }))
+        menu.appendChild(button(t(def.label), '', () => { wrap.classList.remove('open'); this.addOpen = false; this.add(type) }))
       }
     }
     wrap.append(addB, menu)
@@ -613,6 +630,8 @@ export class AnimPane {
 
   private kit(box: HTMLElement): FieldKit {
     return {
+      code: this.code,
+      scripts: this.store.doc.scripts,
       row(label, input, tip) {
         const row = document.createElement('label')
         row.className = 'ed-row'

@@ -171,7 +171,10 @@ f = await fx0()
 ok(f.duration === 2 && f.keys?.length === 3, 'a panel timing edit leaves the keyframes untouched')
 // a key from "a newer version": put it in the document directly, as a newer file would
 await page.evaluate(() => { const fx = window.bento.doc.slides[0].anim[0]; fx.wobble = { hz: 3 } })
+// the click blurs the Duration field; the pane catches up once the press is
+// over (never mid-press: that detached the button being clicked)
 await page.click('.ed-anim-row[data-id="m"]')
+await page.waitForFunction(() => /wobble/.test(document.querySelector('.ed-anim-json')?.value ?? ''), null, { timeout: 3000 }).catch(() => {})
 const cur = JSON.parse(await page.inputValue('.ed-anim-json'))
 ok(cur.wobble?.hz === 3, 'the JSON box shows a key this build does not know')
 await page.fill('.ed-anim-json', JSON.stringify({ ...cur, delay: 0.25, sparkle: true }, null, 2))

@@ -9,6 +9,8 @@
 
 import type { AnimEffect } from '../model'
 import { t } from '../i18n'
+import type { EditorCode } from './codeui'
+import { codeEnabled } from '../code/host'
 
 /** The pane's controls, handed to each entry so every type looks the same. */
 export interface FieldKit {
@@ -17,6 +19,10 @@ export interface FieldKit {
   select(options: Array<[string, string]>, value: string, onChange: (v: string) => void): HTMLSelectElement
   chips(items: Array<[string, () => void]>): HTMLElement
   hint(text: string): HTMLElement
+  /** the deck's code (FORK): absent where no code UI is wired (node rigs) */
+  code?: EditorCode
+  /** the deck's scripts, as data — enough to say "missing" without a sandbox */
+  scripts?: Record<string, { src: string }>
 }
 
 export type FieldEntry = (fx: AnimEffect, kit: FieldKit, set: (patch: Partial<AnimEffect>) => void) => void
@@ -56,9 +62,37 @@ export const FIELDS: Record<string, FieldEntry> = {
     ], dir, (v) => apply(v, dist)))
     if (dir !== 'none') kit.row(t('Distance'), kit.number(dist, 10, (v) => apply(dir, Math.max(0, v)), { min: 0 }))
   },
-  script(fx, kit) {
-    kit.hint(fx.script
-      ? t('Script "{name}" — its parameters appear here once the deck’s code is available.', { name: String(fx.script) })
-      : t('A script effect runs code from the deck. Pick a script in Advanced (JSON) for now.'))
+  script(fx, kit, set) {
+    const code = kit.code
+    const name = typeof fx.script === 'string' ? fx.script : ''
+    if (!code) {
+      kit.hint(name ? t('Script "{name}".', { name }) : t('A script effect runs code from the deck.'))
+      return
+    }
+    const names = code.scripts('effect')
+    if (name && !names.includes(name)) names.unshift(name)
+    kit.row(t('Script'), kit.select([['', t('(choose a script)')], ...names.map((n): [string, string] => [n, n])], name,
+      // another script has other parameters: the old values do not carry over
+      (v) => set({ script: v || undefined, params: undefined })))
+    kit.chips([
+      [t('Edit code…'), () => code.openEditor(name || undefined)],
+      [t('New script…'), () => code.openEditor(undefined, 'effect')],
+    ])
+    if (!name) { kit.hint(t('Pick a script, or write one: it decides what the element does; this row decides when.')); return }
+    if (!kit.scripts?.[name]) { kit.hint(t('No script called “{name}” in this deck — the effect plays as nothing.', { name })); return }
+    if (!codeEnabled()) { kit.hint(t('Deck code is off in this browser — the effect plays as nothing here.')); return }
+    const err = code.error(name)
+    if (err) { kit.hint(err).classList.add('ed-code-error'); return }
+    const meta = code.meta(name)
+    if (meta?.kind === 'canvas') { kit.hint(t('“{name}” is a canvas script, not an effect script.', { name })); return }
+    code.paramRows(meta, fx.params, (label, input) => kit.row(label, input), (key, v) => {
+      const params = { ...(fx.params ?? {}) }
+      if (v === null) delete params[key]
+      else params[key] = v
+      set({ params: Object.keys(params).length ? params : undefined })
+    })
+    if (meta) kit.hint(Array.isArray(meta.drives) && meta.drives.length
+      ? t('Drives {keys}; everything else follows the effects above it.', { keys: meta.drives.join(', ') })
+      : t('Declares no drives: it may change position, angle, scale, opacity and colour.'))
   },
 }

@@ -59,6 +59,7 @@ import { dryRun, applyCompress, type DryRun } from './compressdeck'
 import { createDialog } from '../../../kernel/src/ui/dialog.ts'
 import '../../../kernel/src/ui/dialog.css'
 import { PresenceToasts } from './presencetoasts'
+import { EditorCode } from './codeui'
 
 const i18nT = t
 
@@ -150,6 +151,8 @@ export class Editor {
   private panel!: PropsPanel
   private animUI = new AnimUI()
   private animPane!: AnimPane
+  /** the deck's code (FORK): bakes, posters, the chip, the Deck code dialog */
+  private code!: EditorCode
   private propsTabs!: { format: HTMLButtonElement; animate: HTMLButtonElement; formatHost: HTMLElement; animHost: HTMLElement }
   /** Sidebar multi-selection: PARENT indices (slidesel.ts). The current slide
    *  is the anchor and the canvas slide; this set is what a drag moves and
@@ -393,8 +396,7 @@ export class Editor {
         t('Add a table — edit cells inline; turn it into a live chart from the panel')),
       btn(ICONS.chart, t('Chart'), () => this.canvas.insert(defaultChart(applyChartPalette(CHART_PRESETS.bar(), this.store.doc.theme))),
         t('Add a chart — edit it visually or link it to a table so it updates live')),
-      btn(ICONS.code, t('Code'), () => this.canvas.insert(defaultCode({ color: readableInk(this.store.slide.background) }), true),
-        t('Add a code snippet')),
+      this.codeDropdown(),
     )
     const commentB = btn(ICONS.comment, t('Comment'), () => this.canvas.toggleCommentMode(),
       t('Comment (C) — click an element or a spot on the slide'))
@@ -485,7 +487,12 @@ export class Editor {
       authored: new Map(), homeOf: new Map(),
     }
 
-    bar.append(logo, this.updatesB, title, this.fileChip, phoneTools, insert, actions, moreD)
+    this.code = new EditorCode(this.store, {
+      toast: (m) => this.toast(m),
+      surface: () => this.canvas?.previewSurface() ?? null,
+      codeChanged: () => { this.animPane?.refresh(); this.panel?.codeChanged() },
+    }, this.buildScope.signal)
+    bar.append(logo, this.updatesB, title, this.fileChip, this.code.chip, phoneTools, insert, actions, moreD)
 
     // main area
     const main = div('ed-main')
@@ -607,6 +614,7 @@ export class Editor {
     this.canvas.onCommentModeChange = (on) => commentB.classList.toggle('ed-btn-armed', on)
     this.canvas.onSlideNav = (dir) => this.store.goToLinear(dir)
     this.panel = new PropsPanel(this.propsTabs.formatHost, this.store)
+    this.panel.code = this.code
     this.panel.onListIndent = (dir) => { this.canvas.indentList(dir) }
     // the Animate tab: a fresh pane state per build (a language switch rebuilds)
     this.animUI = new AnimUI()
@@ -614,8 +622,11 @@ export class Editor {
       surface: () => this.canvas.previewSurface(),
       setPreviewing: (on) => this.canvas.setPreviewing(on),
       repaint: () => this.canvas.render(),
+      scriptFor: (s) => this.code.host.scriptFor(s),
+      canvases: (s, click, at) => this.code.preview(s, click, at),
+      stopCanvases: () => this.code.stopPreview(),
     }, this.store)
-    this.animPane = new AnimPane(this.store, this.animUI, preview, this.buildScope.signal)
+    this.animPane = new AnimPane(this.store, this.animUI, preview, this.buildScope.signal, this.code)
     this.propsTabs.animHost.appendChild(this.animPane.root)
     this.animUI.requestOpen = () => this.showPropsTab('animate')
     this.canvas.setAnimUI(this.animUI, (elId) => { this.store.select([elId]); this.showPropsTab('animate') })
@@ -2366,6 +2377,26 @@ export class Editor {
 
   /** Media insert menu: a file (embeds) or a link (stays a URL — keeps the
    *  deck small; good for big clips that shouldn't ride inside the file). */
+  /** Code: a snippet (text, highlighted) or a code canvas (drawn by a script, FORK). */
+  private codeDropdown(): HTMLElement {
+    const wrap = div('ed-dropdown')
+    const trigger = btn(ICONS.code, t('Code'), () => wrap.classList.toggle('open'),
+      t('Add a code snippet, or a canvas drawn by a script'))
+    const menu = div('ed-menu')
+    const item = (label: string, tip: string, onClick: () => void) => {
+      const b = btn(ICONS.code, t(label), () => { wrap.classList.remove('open'); onClick() }, t(tip))
+      menu.appendChild(b)
+    }
+    item('Code snippet', 'Add a code snippet', () => this.canvas.insert(defaultCode({ color: readableInk(this.store.slide.background) }), true))
+    item('Code canvas', 'A box drawn by a script from this deck (a simulation, a plot, a diagram that moves). Runs in a sandbox.', () => this.code.insertCanvas())
+    item('Deck code…', 'Edit this deck’s scripts', () => this.code.openEditor())
+    wrap.append(trigger, menu)
+    document.addEventListener('pointerdown', (ev) => {
+      if (!wrap.contains(ev.target as Node)) wrap.classList.remove('open')
+    }, { signal: this.buildScope.signal })
+    return wrap
+  }
+
   private mediaDropdown(): HTMLElement {
     const wrap = div('ed-dropdown')
     const trigger = btn(ICONS.media, t('Media'), () => wrap.classList.toggle('open'),
@@ -2473,7 +2504,7 @@ export class Editor {
       this.presenting = false
       this.store.goTo(last)
       this.canvas.render()
-    }, { fullscreen, broadcast: this.presenterBroadcast() })
+    }, { fullscreen, broadcast: this.presenterBroadcast(), code: this.code.host })
   }
 
   /**

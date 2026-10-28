@@ -9,7 +9,10 @@
  * badge — scripts/test-slides-reveal-ui.ts holds render.ts to that.
  *
  * Shown only while the slide has a step at all (reveal.ts hasSteps): a slide
- * that does not use reveals carries no chrome for them. Clicking a badge
+ * that does not use reveals carries no chrome for them. FORK: and only while
+ * the Animate tab is open — they are its chrome (it lists a legacy slide's
+ * reveal steps too), and a slide being laid out is not dotted with numbers.
+ * Without the animation pane wired in, they show as they always did. Clicking a badge
  * selects the element and walks it to the next step (reveal.ts cycleStep);
  * the number is also editable in the panel's Presenting section.
  */
@@ -77,6 +80,7 @@ export class StepBadges {
   /** Rebuild the badges for the current slide (after render/relayout/selection). */
   refresh() {
     this.layer.innerHTML = ''
+    if (this.anim && !this.anim.ui.open) return
     const slide = this.store.slide
     if (slide && usesAnim(slide)) { this.refreshAnim(); return }
     if (!slide || !hasSteps(slide.elements)) return

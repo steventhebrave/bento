@@ -186,7 +186,9 @@ names provisional.
   (present-mode DOM: `frameTransform`, shared with runMorph). A slide WITHOUT
   `anim` takes the untouched legacy runtime (fx.step/enter) — keep it that way;
   `scripts/ab-present-legacy.mjs <upstream-shell> <this-shell>` proves old decks
-  play identically. Rigs: test-slides-animseq.ts, test-slides-anim-format.ts,
+  play identically. The canvas's click-number badges (editor/stepbadges.ts, sequence
+  AND legacy reveal steps) show only while the Animate tab is open (`AnimUI.open`).
+  Rigs: test-slides-animseq.ts, test-slides-anim-format.ts,
   test-slides-anim-present-browser.mjs, kernel test-anim-bezier.ts (eases live in
   kernel/src/ease.ts). Self-update is OFF in this fork (`configureApp
   selfUpdate:false`). Decisions: docs/DECISIONS.md 2026-10-28 (FORK).

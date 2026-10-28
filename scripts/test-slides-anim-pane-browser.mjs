@@ -8,6 +8,7 @@
 // WHAT THIS PROVES
 //   1. the Animate tab lists the slide's effects grouped by click, with a bar
 //      per timed effect and a marker per instant one; badges show click numbers
+//      on the canvas — only while the Animate tab is open
 //   2. selection is shared both ways: a row selects its element on the canvas;
 //      clicking an element on the canvas selects its rows
 //   3. Add animation adds an effect for the selected element (one undo step)
@@ -61,6 +62,9 @@ await page.goto(SHELL)
 await page.waitForFunction(() => !!window.bento?.loadDoc)
 await page.evaluate((j) => window.bento.loadDoc(j), JSON.stringify(DOC))
 await page.evaluate(() => window.bento.anim.setManual(true))
+await page.waitForTimeout(150)
+const badgeCount = () => page.$$eval('.ed-step-badge', (b) => b.length)
+const formatBadges = await badgeCount()
 await page.click('.ed-props-tab:nth-child(2)')
 const anim = () => page.evaluate(() => window.bento.doc.slides[window.bento.doc.slides.findIndex((s) => s.id === document.querySelector('.ed-stage-scale .bento-slide')?.dataset.slideId)].anim ?? null)
 const rows = () => page.$$eval('.ed-anim-row', (rs) => rs.map((r) => ({ id: r.dataset.id, sel: r.classList.contains('sel'), text: r.textContent })))
@@ -78,6 +82,11 @@ ok((await page.$$eval('.ed-anim-ghead .ed-anim-gtitle', (h) => h.map((x) => x.te
 ok(await page.$$eval('.ed-anim-bar', (b) => b.length) === 3 && await page.$$eval('.ed-anim-dot', (b) => b.length) === 1, 'three bars and one instant marker')
 const badges = await page.$$eval('.ed-anim-badge', (b) => b.map((x) => x.textContent).sort().join())
 ok(badges === '1,1·2,2', `canvas badges show each element's clicks — a animates on 1 and 2 (${badges})`)
+ok(formatBadges === 0, `with the Format tab open the canvas shows no badges (${formatBadges})`)
+await page.click('.ed-props-tab:nth-child(1)')
+const offAgain = await badgeCount()
+await page.click('.ed-props-tab:nth-child(2)')
+ok(offAgain === 0 && await badgeCount() === 3, `back to Format they go (${offAgain}); back to Animate they return`)
 
 console.log('\nselection both ways')
 await page.click('.ed-anim-row[data-id="f3"]')

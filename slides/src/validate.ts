@@ -28,6 +28,7 @@ import { isRemoteUrl } from '../../kernel/src/net.ts'
 import { measureElements, measureTables } from './measure.ts'
 import { BUILTIN_FONTS } from './fonts.ts'
 import { eachRef, paletteOf, parseThemeRef, resolveRef, _readPath } from './palette.ts'
+import { effectDef } from './effects/index.ts'
 
 export type Severity = 'error' | 'warning' | 'info'
 
@@ -259,6 +260,41 @@ export function validateDoc(doc: BentoDoc, opts: ValidateOpts = {}): ValidateRes
         message: `stateOf points at "${slide.stateOf}", which is not a slide in this deck — the state is unreachable.` })
     }
 
+    // the animation sequence --------------------------------------------------
+    const seq = Array.isArray(slide.anim)
+    if (seq) {
+      const byId = new Map(slide.elements.map((e) => [e.id, e]))
+      slide.anim!.forEach((fx, i) => {
+        const path = `anim.${i}`
+        const at = { slide: sid, element: typeof fx?.el === 'string' ? fx.el : undefined }
+        if (!fx || typeof fx !== 'object') return
+        for (const k of Object.keys(fx)) {
+          if (!(MODEL_KEYS.animEffect as readonly string[]).includes(k)) {
+            add({ ...at, code: 'unknown-key', severity: 'warning', path: `${path}.${k}`,
+              message: `"${k}" is not a property of an animation effect — it is ignored.` })
+          }
+        }
+        const def = effectDef(fx.type)
+        if (!def) {
+          add({ ...at, code: 'anim-unknown-type', severity: 'warning', path: `${path}.type`,
+            message: `Effect type "${String(fx.type)}" is not one this app knows — it keeps its place in the sequence and does nothing.` })
+        }
+        const target = byId.get(fx.el)
+        if (!target) {
+          add({ ...at, code: 'anim-dangling-target', severity: 'warning', path: `${path}.el`,
+            message: `This effect animates "${String(fx.el)}", which is not on this slide${(fx.trigger ?? 'click') === 'click' ? ' — the audience still spends a click on it and sees nothing happen' : ''}.` })
+        } else if (def && (def.kind === 'motion' || def.kind === 'emphasis' || def.kind === 'script') && (target.fx?.loop?.type === 'motion-path' || target.fx?.ambient === 'kenburns')) {
+          add({ ...at, code: 'anim-ambient-transform', severity: 'warning', path: `${path}.type`,
+            message: `"${target.id}" has a ${target.fx?.ambient === 'kenburns' ? 'ken-burns zoom' : 'motion-path loop'}, which owns its transform — a ${def.label.toLowerCase()} effect on it moves nothing (only fades apply).` })
+        }
+      })
+      const legacy = slide.elements.filter((e) => e.fx && (e.fx.step || e.fx.enter || e.fx.order !== undefined || e.fx.enterDur !== undefined))
+      if (legacy.length) {
+        add({ code: 'anim-legacy-ignored', severity: 'info', slide: sid, path: 'anim',
+          message: `This slide has an animation sequence, so fx.step / fx.enter / fx.order / fx.enterDur on ${legacy.map((e) => e.id).join(', ')} are ignored here (they still tell an older app what to do).` })
+      }
+    }
+
     for (const el of slide.elements) {
       const at = { slide: sid, element: el.id }
 
@@ -324,7 +360,7 @@ export function validateDoc(doc: BentoDoc, opts: ValidateOpts = {}): ValidateRes
       // from its previous-slide frame, and an entrance tween would fight that.
       // An element with no partner on the previous slide runs its fx.enter
       // normally, so there is nothing to report.
-      if (el.fx?.enter && isMorphArrival && partners.has(mk)) {
+      if (el.fx?.enter && !seq && isMorphArrival && partners.has(mk)) {
         add({ ...at, code: 'overridden-enter-fx', severity: 'warning', path: 'fx.enter',
           message: `This element morphs in from the previous slide, so it is already in motion and fx.enter is skipped. Give it a morph key that is new to this slide if you want it to enter instead.` })
       }

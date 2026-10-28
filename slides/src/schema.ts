@@ -24,7 +24,7 @@
 
 import { FORMAT, FORMAT_VERSION } from './model'
 import { MODEL_KEYS } from './modelkeys.generated'
-import { ELEMENT_CHECKS, SLIDE_CHECKS, REQUIRED_KEYS, LIMITS, objectSchema, type JsonSchema } from './untrusted'
+import { ELEMENT_CHECKS, SLIDE_CHECKS, REQUIRED_KEYS, LIMITS, EASE_CHECK, objectSchema, type JsonSchema } from './untrusted'
 
 export const SCHEMA_URL = 'https://bento.page/schema/slides.json'
 
@@ -102,6 +102,7 @@ export function buildSchema(version: string): JsonSchema {
     present: obj(MODEL_KEYS.present, {
       numberHidden: { type: 'boolean' }, slideNumber: { type: 'boolean' }, controls: { type: 'boolean' }, progress: { type: 'boolean' },
       morphSeconds: { type: 'number', minimum: 0, maximum: 60 },
+      morphEase: EASE_CHECK.schema!,
       typeWriterSeconds: { type: 'number', minimum: 0.08, maximum: 1, description: 'typewriter: seconds per character (absent = 0.08)' },
     }),
     slides: { type: 'array', minItems: 1, maxItems: LIMITS.slides, items: { $ref: '#/$defs/slide' } },

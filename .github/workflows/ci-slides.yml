@@ -161,6 +161,13 @@ jobs:
         # primary in both themes, and N language rebuilds leaving one set of
         # window/document listeners and bar observers.
         run: node scripts/test-slides-topbar-browser.mjs
+      - name: Animation sequence in a slideshow in Chromium
+        # Measured (boxes + screenshot pixels, manual clock): clicks fade, move
+        # and spin; ← restores exactly; the morph out of a slide starts from
+        # its end state with the slide's own duration and cubic-bezier; ← into
+        # a slide arrives fully played; legacy fx.step still reveals; clicker
+        # keys and the speaker window drive clicks; reduced motion lands at once.
+        run: node scripts/test-slides-anim-present-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

@@ -117,6 +117,9 @@ const tables = {
   tableCell: uniq(keysOf('TableCell')),
   gradient: uniq(keysOf('GradientFill')),
   imageCrop: uniq(keysOf('ImageCrop')),
+  // the animation sequence (slide.anim) and its keyframes
+  animEffect: uniq(keysOf('AnimEffect')),
+  animKey: uniq(keysOf('AnimKeyframe')),
   // the document's own nested objects — the schema (schema.ts) describes the
   // top level from these, so a field added to the theme reaches the schema
   // the same way a field added to an element does

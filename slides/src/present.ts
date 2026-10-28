@@ -20,13 +20,19 @@ import { lsGet, lsSet } from '../../kernel/src/storage.ts'
 import type { ShowEvent, ShowVerbs } from '../../kernel/src/sync/session.ts'
 import { FollowState, laserDue } from './follow'
 import { StepState, stepOf, shownAt } from './steps'
+import { morphFrames, planAnim, usesAnim } from './animseq'
+import { AnimPlayer, frameTransform, paintAt, restTargets } from './animplayer'
+import type { Frame } from './effects/index.ts'
+import type { Ease } from './model'
 import { offlineEnabled } from './update'
 import { countPlan } from './countnumber'
 
 const MORPH_DURATION_DEFAULT = 0.65
 /** Set per-deck by doc.present.morphSeconds; clamped to something sane. */
 let MORPH_DURATION = MORPH_DURATION_DEFAULT
-const MORPH_EASE = 'power2.inOut'
+const MORPH_EASE_DEFAULT: Ease = 'power2.inOut'
+/** Set per transition: the morphing slide's morphEase, else the deck's, else the default. */
+let MORPH_EASE: Ease = MORPH_EASE_DEFAULT
 const TYPE_WRITER_DURATION_DEFAULT = 0.08
 /** Seconds per typed character, per-deck by doc.present.typeWriterSeconds. */
 let TYPE_WRITER_DURATION = TYPE_WRITER_DURATION_DEFAULT
@@ -86,6 +92,16 @@ export function startPresentation(
   } = {},
 ): PresentSession {
   MORPH_DURATION = Math.min(6, Math.max(0.1, doc.present?.morphSeconds ?? MORPH_DURATION_DEFAULT))
+  MORPH_EASE = doc.present?.morphEase ?? MORPH_EASE_DEFAULT
+  /** The morph timing for a transition INTO `slide` (the slide whose transition is morph). */
+  const deckMorphSeconds = MORPH_DURATION
+  const setMorphTiming = (slide: Slide | undefined) => {
+    // the deck value keeps its historical clamp (a deck that asked for 10s has
+    // always played 6s); a slide's own override may run long, for a slow reveal
+    const own = slide?.morphSeconds
+    MORPH_DURATION = typeof own === 'number' && Number.isFinite(own) ? Math.min(30, Math.max(0.1, own)) : deckMorphSeconds
+    MORPH_EASE = slide?.morphEase ?? doc.present?.morphEase ?? MORPH_EASE_DEFAULT
+  }
   TYPE_WRITER_DURATION = Math.min(1, Math.max(0.08, doc.present?.typeWriterSeconds ?? TYPE_WRITER_DURATION_DEFAULT))
 
   const overlay = document.createElement('div')
@@ -192,9 +208,30 @@ export function startPresentation(
     sendNav(cur)
     updateSpeakerControls()
   }
+  // ——— the animation sequence (slide.anim): on a slide that carries one, the
+  // player owns → and ← until its clicks run out. Decisions in animseq.ts. ———
+  const player = new AnimPlayer({
+    reduceMotion: () => reduceMotion,
+    onEntrances: (ids) => {
+      const cur = deck.getIndices().h
+      const section = currentSection()
+      if (section && doc.slides[cur]) runAnimDecor(doc.slides[cur], section, new Set(ids))
+    },
+  })
+  const animated = (i: number) => usesAnim(doc.slides[i])
+  // A sequenced slide enters `steps` with no elements, so steps.next()/prev()
+  // answer 'slide' there and the player gets its turn.
+  const seqStep = (dir: 1 | -1): boolean => {
+    const cur = deck.getIndices().h
+    if (!animated(cur) || !player.bound || !(dir > 0 ? player.next() : player.prev())) return false
+    sendNav(cur)
+    updateSpeakerControls()
+    return true
+  }
   const goNext = () => {
     const r = steps.next()
     if (r.kind === 'step') return revealStep(r)
+    if (seqStep(1)) return
     const cur = deck.getIndices().h
     for (let i = (isState(cur) ? anchorOf(cur) : cur) + 1; i < doc.slides.length; i++) {
       if (!isState(i)) return deck.slide(i, 0)
@@ -203,6 +240,7 @@ export function startPresentation(
   const goPrev = () => {
     const r = steps.prev()
     if (r.kind === 'step') return hideStep(r)
+    if (seqStep(-1)) return
     const cur = deck.getIndices().h
     if (isState(cur)) return deck.slide(anchorOf(cur), 0)
     for (let i = cur - 1; i >= 0; i--) {
@@ -211,6 +249,7 @@ export function startPresentation(
   }
   const hasNext = () => {
     if (steps.hasNext()) return true
+    if (animated(deck.getIndices().h) && player.hasNext()) return true
     const cur = deck.getIndices().h
     for (let i = (isState(cur) ? anchorOf(cur) : cur) + 1; i < doc.slides.length; i++) {
       if (!isState(i)) return true
@@ -219,6 +258,7 @@ export function startPresentation(
   }
   const hasPrev = () => {
     if (steps.hasPrev()) return true
+    if (animated(deck.getIndices().h) && player.hasPrev()) return true
     const cur = deck.getIndices().h
     if (isState(cur)) return true // right-swipe returns to the parent slide
     for (let i = cur - 1; i >= 0; i--) {
@@ -785,7 +825,7 @@ export function startPresentation(
   }
   const sendNav = (idx: number) => {
     if (!showOn) return
-    bc?.presenter?.verbs()?.nav({ id: doc.slides[idx]?.id, i: visibleIndex(idx), lock: showLock, step: steps.step })
+    bc?.presenter?.verbs()?.nav({ id: doc.slides[idx]?.id, i: visibleIndex(idx), lock: showLock, step: animated(idx) ? player.click : steps.step })
   }
 
   // Second-screen placement is set up in the EDITOR (properties panel) before
@@ -825,8 +865,9 @@ export function startPresentation(
     const anchor = isState(cur) ? anchorOf(cur) : cur
     const count = d.querySelector('.sv-count')
     if (count) {
-      const max = doc.slides[cur] ? Math.max(0, ...doc.slides[cur].elements.map(stepOf)) : 0
-      count.textContent = `${visibleIndex(cur)} / ${visibleTotal}` + (max ? ` · ${steps.step}/${max}` : '')
+      const seq = animated(cur)
+      const max = !doc.slides[cur] ? 0 : seq ? player.clicks : Math.max(0, ...doc.slides[cur].elements.map(stepOf))
+      count.textContent = `${visibleIndex(cur)} / ${visibleTotal}` + (max ? ` · ${seq ? player.click : steps.step}/${max}` : '')
     }
     d.querySelectorAll<HTMLElement>('.sv-thumb').forEach((th) => {
       const on = Number(th.dataset.idx) === anchor
@@ -943,7 +984,11 @@ export function startPresentation(
           const node = section.querySelector<HTMLElement>(`[data-el-id="${CSS.escape(el.id)}"]`)
           if (node) { applyElementFrame(node, el); resetXform(node) }
         }
-        if (!on) { runEnterFx(slide, section); runAmbientFx(slide, section); restartSvgAnimations(section) }
+        if (animated(cur) && player.bound) {
+          // the sequence's state is a function of the click, so settling it is exact
+          player.settle()
+          if (!on) { runAmbientFx(slide, section); restartSvgAnimations(section) }
+        } else if (!on) { runEnterFx(slide, section); runAmbientFx(slide, section); restartSvgAnimations(section) }
       }
     }
     updateSpeakerControls()
@@ -1203,6 +1248,7 @@ export function startPresentation(
       /* Reveal teardown is best-effort */
     }
     overlay.remove()
+    player.stop()
     window.removeEventListener('resize', onResize)
     document.removeEventListener('keydown', onKeydown, true)
     document.removeEventListener('fullscreenchange', onFsChange)
@@ -1310,6 +1356,10 @@ export function startPresentation(
     if (!to) return
     const fromIdx = from ? [...slidesEl.children].indexOf(from) : -1
     const toIdx = [...slidesEl.children].indexOf(to)
+    // Where the outgoing slide's sequence stood: the morph out of it starts
+    // there, and the outgoing section keeps showing it while it transitions out.
+    const leftAt = from && animated(fromIdx) && player.bound ? player.position() : null
+    player.stop()
     if (from) {
       // Kill the outgoing slide's tweens, then restore model frames —
       // a tween killed during its delay would otherwise leave the element
@@ -1328,28 +1378,59 @@ export function startPresentation(
       if (fromSlide?.hover?.type === 'reveal') {
         applyRevealSet(from, null, fromSlide.hover.default)
       }
+      if (leftAt && fromSlide) paintAt(from, fromSlide, leftAt.click, leftAt.t)
     }
     // The incoming section may still carry span state from a PREVIOUS visit
     // (Reveal keeps sections mounted) — start clean before any fx runs.
     sweepSymbolSpans(to)
     const forward = toIdx > fromIdx
+    const toSlide = doc.slides[toIdx]
+    const toSeq = animated(toIdx)
+    // A sequence arrives at click 0 going forward and fully played going
+    // backward (as reveal steps do), or at the click a followed presenter named.
+    let arriveClick = 0
+    let arriveAtEnd = false
     // Reveal steps: forward arrives with them hidden, backward fully shown —
-    // unless the audience is following a presenter who named the step.
-    steps.enter(doc.slides[toIdx]?.elements ?? [], forward)
-    if (pendingStep !== null) { steps.set(pendingStep); pendingStep = null }
-    applyStep(to, doc.slides[toIdx], steps.step)
+    // unless the audience is following a presenter who named the step. A
+    // sequenced slide has none (its elements' fx.step is ignored there).
+    if (toSeq) steps.enter([], forward)
+    else steps.enter(doc.slides[toIdx]?.elements ?? [], forward)
+    if (toSeq) {
+      arriveAtEnd = !forward || pendingStep !== null
+      arriveClick = pendingStep !== null ? pendingStep : forward ? 0 : planAnim(toSlide.anim).clicks
+      pendingStep = null
+      restTargets(to, toSlide) // a previous visit left its exit state on these nodes
+    } else {
+      if (pendingStep !== null) { steps.set(pendingStep); pendingStep = null }
+      applyStep(to, toSlide, steps.step)
+    }
     // Morph forward into a morph slide, and un-morph when backing out of one.
     const morphing =
       from &&
-      ((forward && doc.slides[toIdx]?.transition === 'morph') ||
+      ((forward && toSlide?.transition === 'morph') ||
         (!forward && doc.slides[fromIdx]?.transition === 'morph'))
+    let morphed: MorphResult | null = null
     if (morphing) {
       if (!reduceMotion) {
-        runMorph(doc, from!, to, fromIdx, toIdx)
-        runMorphArrivalCountUps(doc.slides[fromIdx], doc.slides[toIdx], to)
+        // timing belongs to the slide whose transition IS the morph
+        setMorphTiming(forward ? toSlide : doc.slides[fromIdx])
+        // from: where the outgoing sequence stood (a legacy slide: its model);
+        // to: the incoming slide at the click it arrives on
+        const fromFrames = morphFrames(doc.slides[fromIdx], leftAt?.click ?? 0, leftAt?.t ?? Infinity)
+        const toFrames = morphFrames(toSlide, arriveClick, arriveAtEnd ? Infinity : 0)
+        morphed = runMorph(doc, from!, to, fromIdx, toIdx, fromFrames, toFrames, toSeq)
+        runMorphArrivalCountUps(doc.slides[fromIdx], toSlide, to, toSeq ? toFrames : undefined)
       }
     }
-    else if (!reduceMotion) runEnterFx(doc.slides[toIdx], to, undefined, false, steps.step)
+    else if (!reduceMotion && !toSeq) runEnterFx(toSlide, to, undefined, false, steps.step)
+    if (toSeq) {
+      player.enter(to, toSlide, arriveClick, arriveAtEnd, morphed?.animated)
+      if (!arriveAtEnd) {
+        if (!morphed && !reduceMotion) runAnimDecor(toSlide, to)
+        // the arrival group plays once the morph has landed, as PowerPoint does
+        player.play(morphed ? morphed.done : 0)
+      }
+    }
     if (!reduceMotion) {
       runAmbientFx(doc.slides[toIdx], to)
       restartSvgAnimations(to)
@@ -1432,6 +1513,12 @@ export function startPresentation(
   const followStep = (index: number, step: number | undefined) => {
     if (typeof step !== 'number') return
     if (index !== deck.getIndices().h) { pendingStep = step; return }
+    if (animated(index)) {
+      if (!player.bound || step === player.click) return
+      if (step === player.click + 1) player.next() // play it, as the presenter did
+      else player.seek(step)
+      return
+    }
     const was = steps.step
     steps.set(step)
     if (steps.step === was) return
@@ -1530,10 +1617,19 @@ export function startPresentation(
     setTimeout(onResize, 600)
     const first = slidesEl.children[startIndex] as HTMLElement | undefined
     if (first) {
-      steps.enter(doc.slides[startIndex]?.elements ?? [], true)
-      applyStep(first, doc.slides[startIndex], steps.step)
+      const firstSlide = doc.slides[startIndex]
+      if (animated(startIndex)) {
+        steps.enter([], true)
+        restTargets(first, firstSlide)
+        player.enter(first, firstSlide, 0, false)
+        if (!reduceMotion) runAnimDecor(firstSlide, first)
+        player.play(0)
+      } else {
+        steps.enter(firstSlide?.elements ?? [], true)
+        applyStep(first, firstSlide, steps.step)
+      }
       if (!reduceMotion) {
-        runEnterFx(doc.slides[startIndex], first, undefined, false, steps.step)
+        if (!animated(startIndex)) runEnterFx(firstSlide, first, undefined, false, steps.step)
         runAmbientFx(doc.slides[startIndex], first)
         restartSvgAnimations(first)
       }
@@ -1705,11 +1801,29 @@ function runEnterFx(slide: Slide, section: HTMLElement, only?: Set<string>, reve
  * partner is new on this slide, has no transform to fight, and is exactly what
  * the author asked to count.
  */
-function runMorphArrivalCountUps(from: Slide | undefined, to: Slide, section: HTMLElement) {
+function runMorphArrivalCountUps(from: Slide | undefined, to: Slide, section: HTMLElement, toFrames?: Map<string, Frame>) {
   const carried = new Set((from?.elements ?? []).map((el) => el.morphId || el.id))
   for (const [el, node] of fxNodes(to, section)) {
     if (!el.fx!.countUp || el.showOnHover) continue
+    // a sequence element hidden on arrival counts up when its entrance plays
+    if (toFrames && (toFrames.get(el.morphId || el.id)?.opacity ?? 1) <= 0) continue
     if (!carried.has(el.morphId || el.id)) runCountUp(node)
+  }
+}
+
+/**
+ * Count-up and typewriter on a slide that carries an animation sequence.
+ * There `fx.enter` is ignored (the sequence is the source of truth), but these
+ * two text effects still run — when the element first shows: on arrival for
+ * the elements visible at click 0, or as its entrance effect starts (`only`).
+ */
+function runAnimDecor(slide: Slide, section: HTMLElement, only?: Set<string>) {
+  const hidden = planAnim(slide.anim).startsHidden
+  for (const [el, node] of fxNodes(slide, section)) {
+    if (el.showOnHover) continue
+    if (only ? !only.has(el.id) : hidden.has(el.id)) continue
+    if (el.fx!.countUp) runCountUp(node)
+    if (el.fx!.typeWriter) runTypeWriter(node, [...node.querySelectorAll<HTMLElement>('[data-sym]')], only ? 0 : 0.12)
   }
 }
 
@@ -2234,13 +2348,41 @@ function morphMathSymbols(
   return true
 }
 
+/** What a morph animates (element ids — the sequence holds off them) and when it has all landed (s). */
+interface MorphResult { animated: Set<string>; done: number }
+
+/** A model element's frame, for a morph called without frames. */
+const restFrame = (el: SlideElement): Frame => ({
+  x: el.x, y: el.y, w: el.w, h: el.h, rotation: el.rotation ?? 0, opacity: el.opacity ?? 1, scale: 1,
+})
+/** Is this frame the element's rest position (what applyElementFrame paints)? */
+const atRest = (F: Frame, el: SlideElement) =>
+  F.x === el.x && F.y === el.y && F.w === el.w && F.h === el.h && F.rotation === (el.rotation ?? 0) && F.scale === 1
+
+/**
+ * Morph from the outgoing slide to the incoming one. Geometry and opacity come
+ * from FRAMES (animseq.ts morphFrames): for a legacy slide those are exactly
+ * the model frames, so the behaviour there is unchanged; for a slide with an
+ * animation sequence they are its state at the click the show leaves or
+ * arrives on — the morph picks the element up where its moves, spins and fades
+ * left it. Nodes are laid out at their model box; every frame is reached by a
+ * transform relative to it (frameTransform, shared with the sequence player).
+ * `seq`: the incoming slide carries a sequence (its hidden-on-arrival elements
+ * stay hidden, and an unchanged opacity is still written from the frame).
+ */
 function runMorph(
   doc: BentoDoc,
   fromSection: HTMLElement,
   toSection: HTMLElement,
   fromIdx: number,
   toIdx: number,
-) {
+  fromFrames?: Map<string, Frame>,
+  toFrames?: Map<string, Frame>,
+  seq = false,
+): MorphResult {
+  const result: MorphResult = { animated: new Set(), done: MORPH_DURATION }
+  const frameFrom = (id: string, el: SlideElement) => fromFrames?.get(id) ?? restFrame(el)
+  const frameTo = (id: string, el: SlideElement) => toFrames?.get(id) ?? restFrame(el)
   const fromEls = elementsById(fromSection)
   const toEls = elementsById(toSection)
   const fromModel = modelByMorphKey(doc, fromIdx)
@@ -2266,12 +2408,14 @@ function runMorph(
     if (fromEls.has(id)) continue
     const m = toModel.get(id)
     if (m?.showOnHover && m.showOnHover !== activeSet) continue // hover-revealed, stays hidden
+    const targetOpacity = m ? frameTo(id, m).opacity : 1
+    if (seq && targetOpacity <= 0) continue // hidden until its click — the sequence shows it
     if (m?.fx?.typeWriter) {
       // new to this slide: it types in, all of it — and rises only if it asked to
       runTypeWriter(n, [...n.querySelectorAll<HTMLElement>('[data-sym]')], MORPH_DURATION * 0.4)
       if (!m.fx.enter) continue
     }
-    entering.push([n, m?.opacity ?? 1])
+    entering.push([n, targetOpacity])
   }
   if (entering.length) {
     const spread = Math.min(0.45, entering.length * 0.03)
@@ -2287,6 +2431,10 @@ function runMorph(
       const kind = owns ? undefined : m?.fx?.enter
       const spec = kind ? enterSpec(kind, m?.fx?.enterDur) : null
       const step = m?.fx?.order ?? i
+      const delay = MORPH_DURATION * 0.4 +
+        (spec ? Math.min(step, 24) * 0.05 : (spread * i) / entering.length)
+      result.done = Math.max(result.done, delay + (spec?.duration ?? 0.45))
+      if (n.dataset.elId) result.animated.add(n.dataset.elId)
       anim.fromTo(n,
         spec ? { ...spec.from } : owns ? { opacity: 0 } : { opacity: 0, y: 14 },
         {
@@ -2295,8 +2443,7 @@ function runMorph(
           duration: spec?.duration ?? 0.45,
           // Both stagger from the same base — the morph is 40% done before
           // anything new arrives, so the two motions read as one beat.
-          delay: MORPH_DURATION * 0.4 +
-            (spec ? Math.min(step, 24) * 0.05 : (spread * i) / entering.length),
+          delay,
           ease: spec?.ease ?? 'power2.out',
         })
     })
@@ -2305,7 +2452,8 @@ function runMorph(
       return [n, m!] as [HTMLElement, SlideElement]
     }).filter(([, m]) => !!m))
   }
-  if (!matchedFrom.length) return
+  if (!matchedFrom.length) return result
+  for (const node of matchedTo) if (node.dataset.elId) result.animated.add(node.dataset.elId)
 
   // Geometry straight from the model — no DOM measuring needed (both sides'
   // frames are in the doc), so the outgoing section's Reveal styling is
@@ -2319,7 +2467,13 @@ function runMorph(
     const a = fromModel.get(id)
     const b = toModel.get(id)
     if (!a || !b) continue
-    if (a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && (a.rotation ?? 0) === (b.rotation ?? 0)) continue
+    const A = frameFrom(id, a)
+    const B = frameTo(id, b)
+    if (A.x === B.x && A.y === B.y && A.w === B.w && A.h === B.h && A.rotation === B.rotation && A.scale === B.scale) {
+      // no travel — but a sequence frame away from rest must still be shown
+      if (!atRest(B, b)) { node.style.transformOrigin = '0 0'; node.style.transform = frameTransform(b, B) }
+      continue
+    }
     const state = { p: 0 }
     node.style.transformOrigin = '0 0'
     anim.to(state, {
@@ -2328,11 +2482,12 @@ function runMorph(
       ease: MORPH_EASE,
       onUpdate() {
         const p = state.p
-        const x = a.x + (b.x - a.x) * p
-        const y = a.y + (b.y - a.y) * p
-        const w = a.w + (b.w - a.w) * p
-        const h = a.h + (b.h - a.h) * p
-        const r = (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * p
+        const x = A.x + (B.x - A.x) * p
+        const y = A.y + (B.y - A.y) * p
+        const w = A.w + (B.w - A.w) * p
+        const h = A.h + (B.h - A.h) * p
+        const r = A.rotation + (B.rotation - A.rotation) * p
+        const sc = A.scale + (B.scale - A.scale) * p
         // Rotate about the element's own CENTRE, spelled out around an origin
         // of 0 0 rather than by moving the origin. Position and scale want the
         // top-left (PowerPoint scale mode), but the resting frame that
@@ -2342,16 +2497,17 @@ function runMorph(
         // Measured on the choreography scene: 7deg jumped 4.1px across and
         // 5.1px up, -6deg the other way, on the frame the morph finished. The
         // triplet below collapses to identity at p=1, so the two frames agree.
-        const cx = b.w / 2
-        const cy = b.h / 2
-        node.style.transform =
-          `translate(${x - b.x}px, ${y - b.y}px)` +
-          ` scale(${w / Math.max(b.w, 0.01)}, ${h / Math.max(b.h, 0.01)})` +
-          (r ? ` translate(${cx}px, ${cy}px) rotate(${r}deg) translate(${-cx}px, ${-cy}px)` : '')
+        // (frameTransform is that triplet; its scale step is the sequence's
+        // own scale, which a model-only morph never has)
+        node.style.transform = frameTransform(b, { x, y, w, h, rotation: r, scale: sc, opacity: 1 })
       },
       onComplete() {
-        node.style.transformOrigin = ''
-        node.style.transform = b.rotation ? `rotate(${b.rotation}deg)` : ''
+        if (atRest(B, b)) {
+          node.style.transformOrigin = ''
+          node.style.transform = b.rotation ? `rotate(${b.rotation}deg)` : ''
+        } else {
+          node.style.transform = frameTransform(b, B) // the sequence's frame; it takes over from here
+        }
         resetXform(node)
       },
     })
@@ -2374,9 +2530,11 @@ function runMorph(
     const a = fromModel.get(id)
     const b = toModel.get(id)
     if (!a || !b) continue
-    if (a.opacity !== b.opacity) {
-      anim.fromTo(to, { opacity: a.opacity }, { opacity: b.opacity, duration: MORPH_DURATION, ease: MORPH_EASE })
-    }
+    const oa = frameFrom(id, a).opacity
+    const ob = frameTo(id, b).opacity
+    if (oa !== ob) {
+      anim.fromTo(to, { opacity: oa }, { opacity: ob, duration: MORPH_DURATION, ease: MORPH_EASE })
+    } else if (seq) to.style.opacity = String(ob)
     if (a.type === 'shape' && b.type === 'shape') {
       const target = to.querySelector<SVGElement>('rect,ellipse,polygon,line,path')
       if (target) morphShapeFill(target, a, b)
@@ -2404,6 +2562,7 @@ function runMorph(
       }
     }
   }
+  return result
 }
 
 // --- fill morphing (solid ⇄ solid, solid ⇄ gradient, gradient ⇄ gradient) ----

@@ -11,7 +11,7 @@
 
 export const MODEL_KEYS = {
     "doc": ["assets", "blobs", "collab", "docId", "fonts", "format", "layouts", "meta", "modified", "present", "readonly", "size", "slides", "template", "theme", "title", "version"],
-    "slide": ["background", "comments", "elements", "hidden", "hover", "id", "name", "notes", "stateOf", "themeRefs", "transition", "unnumbered"],
+    "slide": ["anim", "background", "comments", "elements", "hidden", "hover", "id", "morphEase", "morphSeconds", "name", "notes", "stateOf", "themeRefs", "transition", "unnumbered"],
     "comment": ["at", "author", "elementId", "id", "replies", "resolved", "text", "x", "y"],
     "element": {
       "text": ["align", "backdropFilter", "blend", "blur", "color", "colorGradient", "fontFamily", "fontSize", "fontWeight", "fx", "group", "groupId", "h", "html", "id", "letterSpacing", "lineHeight", "link", "morphId", "opacity", "placeholder", "role", "rotation", "shadow", "showOnHover", "textStroke", "themeRefs", "type", "valign", "w", "x", "y"],
@@ -34,12 +34,14 @@ export const MODEL_KEYS = {
     "tableCell": ["align", "bg", "bold", "color", "html"],
     "gradient": ["angle", "stops"],
     "imageCrop": ["scale", "x", "y"],
+    "animEffect": ["deg", "delay", "duration", "dx", "dy", "ease", "el", "fromDx", "fromDy", "id", "keys", "params", "script", "trigger", "type"],
+    "animKey": ["at", "deg", "dx", "dy", "ease", "opacity"],
     "size": ["height", "width"],
     "meta": ["author", "company", "event", "keywords", "subject"],
     "theme": ["accent", "background", "chartPalette", "codePalette", "color", "fontFamily", "headingFamily", "palette", "table"],
     "themePalette": ["accent2", "accent3", "accent4", "accent5", "accent6", "bg2", "folHlink", "hlink", "tx2"],
     "themeCodePalette": ["a", "c", "d", "f", "k", "n", "p", "s"],
-    "present": ["controls", "morphSeconds", "numberHidden", "progress", "slideNumber", "typeWriterSeconds"],
+    "present": ["controls", "morphEase", "morphSeconds", "numberHidden", "progress", "slideNumber", "typeWriterSeconds"],
     "font": ["asset", "family", "style", "weight"],
   } as const
 

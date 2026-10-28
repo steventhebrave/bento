@@ -180,6 +180,16 @@ names provisional.
   `serializeBezier` emits exactly one on-curve point per node (so anim.ts
   `onCurvePoints` recovers the same anchor list); split interpolates the new
   anchor's speed from its neighbours.
+- **Animation sequence (FORK, `slide.anim`)** — `src/animseq.ts` (pure: plan,
+  `stateAt(slide, click, t)`, `morphFrames`), `src/effects/` (the registry: one
+  module per type; add a type = one module + its panel entry), `src/animplayer.ts`
+  (present-mode DOM: `frameTransform`, shared with runMorph). A slide WITHOUT
+  `anim` takes the untouched legacy runtime (fx.step/enter) — keep it that way;
+  `scripts/ab-present-legacy.mjs <upstream-shell> <this-shell>` proves old decks
+  play identically. Rigs: test-slides-animseq.ts, test-slides-anim-format.ts,
+  test-slides-anim-present-browser.mjs, kernel test-anim-bezier.ts (eases live in
+  kernel/src/ease.ts). Self-update is OFF in this fork (`configureApp
+  selfUpdate:false`). Decisions: docs/DECISIONS.md 2026-10-28 (FORK).
 - **Signed writes / read-only tiers (v0.9.18)**: three file modes now, split
   from the old conflated `readonly`. (1) **Presentation package** = `doc.readonly`
   (unchanged: PLAYER file, present-only, collab stripped) — "Save as

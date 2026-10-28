@@ -584,3 +584,18 @@ runs:
       # inbound, and an unknown key from a peer is applied but never echoed.
       shell: bento-step {0}
       run: node scripts/test-slides-sync-allowlist.ts
+
+    - name: Animation sequence engine rig
+      # The state at any (click, time) is a pure function of slide.anim:
+      # click/with/after timing, entrance-first hiding, accumulation and
+      # composition, continuity across clicks, purity (← is exact), keyframes,
+      # unknown types and dangling targets, the script hook, morph frames.
+      shell: bento-step {0}
+      run: node scripts/test-slides-animseq.ts
+
+    - name: Animation sequence format rig
+      # Additive: real decks carry none of the new fields and take the legacy
+      # runtime; the gate keeps a good anim list and drops bad effects one by
+      # one; compact form, schema and validate() know the fields.
+      shell: bento-step {0}
+      run: node scripts/test-slides-anim-format.ts

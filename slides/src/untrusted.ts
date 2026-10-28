@@ -45,6 +45,7 @@ import { isWebUrl, REQUIRED_ELEMENT_KEYS } from './model'
 import { parseThemeRef } from './palette.ts'
 import { MODEL_KEYS } from './modelkeys.generated'
 import { TIP_KINDS } from './tips'
+import { EFFECT_TYPES } from './effects/index.ts'
 
 /** Reject. JSON has no `undefined`, so it can never collide with a real value. */
 const DROP = undefined
@@ -146,6 +147,11 @@ export const LIMITS = {
   comments: 500,
   stops: 64,
   speeds: 2_000,
+  /** effects in one slide's animation sequence, keyframes in one effect */
+  effects: 2_000,
+  keyframes: 1_000,
+  /** declared parameters on one script effect */
+  params: 64,
   /** a chart option is free-form JSON — bounded, not typed */
   optionNodes: 20_000,
   optionDepth: 12,
@@ -331,6 +337,64 @@ const fx = shape(MODEL_KEYS.fx, {
     speeds: list(LIMITS.speeds, num(0.001, 1000)),
   }, ['type']), // anim.ts dispatches on it; a loop with no type animates nothing
 })
+
+/**
+ * An ease: a preset NAME (a lookup key, never markup — held to the CSS value
+ * rule anyway since it costs nothing), or a CSS-style cubic-bezier of four
+ * finite numbers with both x control points in 0..1 (outside that the curve
+ * is not a function of time) and y bounded only against absurdity.
+ */
+export const EASE_CHECK: Check = tag((v) => {
+  if (typeof v === 'string') return cssValue(64)(v)
+  if (!Array.isArray(v) || v.length !== 4) return DROP
+  const n = v.map((x) => (typeof x === 'string' && x.trim() !== '' ? Number(x) : x))
+  if (!n.every((x) => typeof x === 'number' && Number.isFinite(x))) return DROP
+  const [x1, y1, x2, y2] = n as number[]
+  return x1 >= 0 && x1 <= 1 && x2 >= 0 && x2 <= 1 && Math.abs(y1) <= 10 && Math.abs(y2) <= 10 ? [x1, y1, x2, y2] : DROP
+}, {
+  anyOf: [
+    { type: 'string', maxLength: 64, description: 'preset: linear, power1-3.in/out/inOut, sine.*, ease, ease-in, ease-out, ease-in-out, back.*' },
+    { type: 'array', minItems: 4, maxItems: 4, items: { type: 'number' }, description: 'CSS cubic-bezier(x1, y1, x2, y2); x in 0..1' },
+  ],
+})
+
+/** A script effect's parameter values: plain scalars under identifier keys. */
+const scriptParams: Check = tag((v) => {
+  if (!isPlainObject(v)) return DROP
+  const out: Record<string, unknown> = {}
+  let n = 0
+  for (const key of Object.keys(v)) {
+    if (key === PROTO || key === 'constructor' || key === 'prototype' || !/^[A-Za-z_$][\w$]{0,63}$/.test(key)) { note(key, 'invalid parameter name'); continue }
+    if (++n > LIMITS.params) break
+    const x = v[key]
+    if (typeof x === 'boolean' || (typeof x === 'number' && Number.isFinite(x)) || (typeof x === 'string' && x.length <= LIMITS.prose)) out[key] = x
+    else note(key, 'invalid value')
+  }
+  return out
+}, { type: 'object', maxProperties: LIMITS.params, additionalProperties: { type: ['number', 'string', 'boolean'] }, description: 'script parameter values' })
+
+const offset = num(-1e6, 1e6)
+const animKeyframe = shape(MODEL_KEYS.animKey, {
+  at: num(0, 1), dx: offset, dy: offset, deg: offset, opacity: num(0, 1), ease: EASE_CHECK,
+}, ['at'])
+
+/**
+ * One effect of a slide's animation sequence. `el` and `type` are required:
+ * an effect with no target or no kind animates nothing, and keeping it would
+ * still cost the audience a click. The type must be one the registry knows
+ * (effects/index.ts) — at a paste boundary an unknown kind is not kept, the
+ * same rule as an unknown element type. `script` is a NAME, a key into the
+ * deck's own `doc.scripts`; a clip never carries the code itself, so a pasted
+ * script effect plays only if the target deck has a script by that name.
+ */
+const animEffect = shape(MODEL_KEYS.animEffect, {
+  id: cssValue(), el: cssValue(), type: oneOf(...EFFECT_TYPES),
+  trigger: oneOf('click', 'with', 'after'),
+  delay: num(0, 3600), duration: num(0, 3600), ease: EASE_CHECK,
+  deg: offset, dx: offset, dy: offset, fromDx: offset, fromDy: offset,
+  keys: list(LIMITS.keyframes, animKeyframe),
+  script: cssValue(), params: scriptParams,
+}, ['el', 'type'])
 
 const tableStyle = shape(MODEL_KEYS.tableStyle, {
   headerBg: color(), headerColor: color(), zebra: color(),
@@ -592,6 +656,13 @@ export const SLIDE_CHECKS: Record<string, Check> = {
   background: color(LIMITS.scalar), notes: str(LIMITS.html),
   hidden: bool, unnumbered: bool,
   transition: oneOf('none', 'fade', 'slide', 'zoom', 'morph'),
+  morphSeconds: num(0, 60), morphEase: EASE_CHECK,
+  // effects are dropped INDIVIDUALLY, like elements: one bad effect must not
+  // cost the rest of a copied slide's sequence (order is the sequence itself,
+  // so a gap shifts nothing else out of place)
+  anim: tag((v) => (Array.isArray(v) && v.length <= LIMITS.effects
+    ? v.map((fx, i) => within(String(i), () => animEffect(fx))).filter((fx) => fx !== DROP)
+    : DROP), { type: 'array', maxItems: LIMITS.effects, items: animEffect.schema! }),
   hover: shape(['type', 'dim', 'default'], {
     type: oneOf('focus-group', 'reveal'), dim: num(0, 1), default: cssValue(),
   }, ['type']),

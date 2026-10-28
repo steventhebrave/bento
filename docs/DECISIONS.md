@@ -11911,3 +11911,60 @@ couplings below.
 - **render.ts re-exports** SVG_TAGS, svgAttrAllowed, svgHrefAllowed,
   svgUrlRefsAllowed and sanitizeSvgCss, so callers and rigs keep importing them
   from the renderer.
+
+## 2026-10-28 — FORK: the animation sequence (`slide.anim`) — state is a function of (slide, click, time)
+
+This fork (a science presenter's; design in docs/animation-design.md) adds a
+per-slide ordered effect list in the PowerPoint animation-pane mould. Settled:
+
+- **Format.** `slide.anim: AnimEffect[]`, each `{ id, el, type, trigger?,
+  delay?, duration?, ease?, …type keys }`; types come from a registry
+  (`slides/src/effects/`, one module each — appear, disappear, fade-in, fade-out,
+  spin, move, script). `slide.morphSeconds/morphEase` override the deck's
+  `present.morphSeconds/morphEase` for that slide's INCOMING morph. An ease is
+  a kernel preset name or a CSS-style cubic-bezier `[x1, y1, x2, y2]`
+  (kernel/src/ease.ts). All optional; a deck that uses none of it serialises
+  byte-identically.
+- **Timing is PowerPoint's.** Each `click` effect opens a click group; effects
+  before the first one play on arrival (group 0). `with` starts on the previous
+  effect's ANCHOR (its trigger point, not its delayed start), `after` when it
+  ends; delay adds to the anchor. → while a group plays snaps it to its end and
+  starts the next — one clicker press is always one click.
+- **The state at any click is a pure function of the list** (`animseq.ts`
+  stateAt: a left fold of `apply(stateBefore, easedProgress)`), never of the
+  DOM. ← recomputes the previous click's end; reduced motion recomputes the end;
+  the morph out of a slide reads the same function; an entrance-first element
+  starts hidden; effects accumulate and concurrent ones compose.
+- **Legacy fields: two runtimes, the old one frozen.** A slide WITHOUT `anim`
+  plays through the existing code path, unchanged — fx.step/fx.enter/order/
+  enterDur, morph-arrival entrances, count-ups, the settle guarantee. Re-
+  expressing all that through the new engine would make "plays exactly as
+  before" unprovable; keeping it makes it a property of the code. Measured
+  with scripts/ab-present-legacy.mjs (an upstream shell vs this one, same
+  decks, same keys, same manual-clock instants, every box and screenshot
+  compared). A slide WITH `anim` (even empty) takes the list as the source of
+  truth and ignores those four legacy fields on its elements, never deleting
+  them; countUp/typeWriter still run when the element's entrance starts. The
+  pane shows a legacy slide's fields as an implicit list and converts on the
+  first edit (one undo step).
+- **Morph from the end state.** runMorph takes frames (`morphFrames`): for a
+  legacy slide exactly its model frames (so its behaviour is unchanged), for a
+  sequenced slide its state at the click the show leaves or arrives on. One
+  transform builder (animplayer.ts `frameTransform`) is shared by the morph and
+  the player, so the morph's last frame is the player's first. A spin's whole
+  turns are dropped for the morph (720° morphs as 0°, never unwinding); an
+  element's own model rotation is never wrapped (350°→10° still turns as it
+  always did). The arrival group of a morph-arrived slide starts when the morph
+  (and its entrances) have landed.
+- **Deck morph seconds keep their historical clamp (0.1–6)**; a slide's own
+  override may run to 30 s.
+
+## 2026-10-28 — FORK: signed self-update is off in this fork's slides build
+
+`configureApp({ selfUpdate: false })` (kernel/src/app.ts, update.ts). An update
+re-splices the document into the PUBLISHER's shell, and upstream's shell plays
+none of this fork's fields — the deck would silently lose its animation. Off
+means: no launch check, no manual check, no request of any kind (checked before
+the network), build/apply refuse. Other apps in the repo and the release
+scripts/keys are untouched; language packs still come from the signed channel
+(they never re-splice the deck).

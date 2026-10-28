@@ -444,6 +444,75 @@ export interface Comment {
   replies?: Array<{ id: string; author: string; text: string; at: string }>
 }
 
+/**
+ * An easing: a preset NAME (kernel/src/ease.ts — 'power2.out', 'sine.inOut',
+ * the CSS keywords 'ease'/'ease-in'/'ease-out'/'ease-in-out', 'back.out', …)
+ * or a CSS-style cubic-bezier `[x1, y1, x2, y2]` with exactly the meaning of
+ * CSS `cubic-bezier()` (x clamped to 0..1, y free so a curve can overshoot).
+ */
+export type Ease = string | [number, number, number, number]
+
+/** When an effect starts: on a click, with the previous effect, or after it. */
+export type AnimTrigger = 'click' | 'with' | 'after'
+
+/**
+ * One keyframe along an effect's own progress — the no-code escape hatch for
+ * motion the panel cannot draw (a wobble, a blink). Values mean what the
+ * effect's type means: a move's offset, a spin's angle, a fade's opacity.
+ * `ease` shapes the segment ARRIVING at this keyframe.
+ */
+export interface AnimKeyframe {
+  /** 0..1 along the effect */
+  at: number
+  dx?: number
+  dy?: number
+  deg?: number
+  opacity?: number
+  ease?: Ease
+}
+
+/**
+ * One effect in a slide's animation sequence (`slide.anim`). PowerPoint's
+ * animation pane, reduced to a registry of types (src/effects/): appear,
+ * disappear, fade-in, fade-out, spin, move, script. The STATE at any click is
+ * a pure function of the list (src/animseq.ts) — never of the DOM.
+ *
+ * Timing: each `click` effect opens a new click group; effects before the
+ * first one play on arrival. `with` starts on the previous effect's anchor,
+ * `after` when the previous effect ends; `delay` is added to the anchor.
+ * Effects accumulate: after a move or a spin the element stays put for every
+ * later click.
+ */
+export interface AnimEffect {
+  /** stable id (pane selection); minted by the editor */
+  id: string
+  /** the target element's id, on this slide */
+  el: string
+  /** a registered effect type; an unknown type is kept and plays as nothing */
+  type: string
+  /** absent = 'click' */
+  trigger?: AnimTrigger
+  /** seconds after the trigger; absent = 0 */
+  delay?: number
+  /** seconds; absent = the type's default (appear/disappear are instant) */
+  duration?: number
+  ease?: Ease
+  /** spin: signed degrees, clockwise positive — 720 is two turns */
+  deg?: number
+  /** move: offset in slide px, relative to where the element is when it starts */
+  dx?: number
+  dy?: number
+  /** fade-in: start this far away and travel home while fading (a fly-in) */
+  fromDx?: number
+  fromDy?: number
+  /** keyframes over the effect's progress, replacing its straight motion */
+  keys?: AnimKeyframe[]
+  /** script: the key of a script in `doc.scripts` */
+  script?: string
+  /** script: parameter values, declared by the script's `meta.params` */
+  params?: Record<string, number | string | boolean>
+}
+
 export interface Slide {
   id: string
   background: string
@@ -500,6 +569,19 @@ export interface Slide {
   hover?: { type: 'focus-group' | 'reveal'; dim?: number; default?: string }
   /** review comment threads (editor-only; see Comment) */
   comments?: Comment[]
+  /**
+   * The slide's animation sequence (see AnimEffect). When present — even
+   * empty — it is the source of truth for click-driven animation on this
+   * slide, and the legacy `fx.step` / `fx.enter` / `fx.order` / `fx.enterDur`
+   * of its elements are ignored (never deleted). Absent = the legacy fields
+   * play exactly as they always did. An older shell ignores this field and
+   * shows the slide with its legacy reveals, or all at once.
+   */
+  anim?: AnimEffect[]
+  /** seconds this slide's INCOMING morph takes; absent = present.morphSeconds */
+  morphSeconds?: number
+  /** easing of this slide's incoming morph; absent = present.morphEase */
+  morphEase?: Ease
 }
 
 export interface BentoDoc {
@@ -600,6 +682,8 @@ export interface BentoDoc {
      * around them wants a slower beat. Clamped on read.
      */
     morphSeconds?: number
+    /** Deck-wide morph easing; absent = 'power2.inOut'. A slide's `morphEase` wins. */
+    morphEase?: Ease
     /**
      * Typewriter pace, in seconds per character. Absent = 0.08; clamped to
      * 0.08–1 on read, and a whole run never takes longer than 6 seconds.

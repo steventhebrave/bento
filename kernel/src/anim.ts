@@ -7,8 +7,10 @@
 //     attr: { fill, stop-color, offset, x1..y2, … }  (colors interpolate),
 //     motionPath: { path }  (translate along an SVG path, relative),
 //     plain numeric props on non-element targets (countUp state objects)
-//   vars: duration (s), delay (s), ease ('none'|'linear'|'power1..3.in/out/
-//         inOut'|'sine.inOut'), repeat (-1 = forever), yoyo, transformOrigin,
+//   vars: duration (s), delay (s), ease (a name — 'none'|'linear'|'power1..3.
+//         in/out/inOut'|'sine.*'|CSS keywords|'back.*' — or a CSS-style
+//         cubic-bezier [x1, y1, x2, y2]; see ease.ts), repeat (-1 = forever),
+//         yoyo, transformOrigin,
 //         onUpdate, onComplete
 //   anim.killTweensOf(target | targets), anim.getTweensOf(target) → .progress()
 //   anim.setTimeScale(n) and manual clock (anim.manual/tick) for tests.
@@ -16,24 +18,9 @@
 // Transform channels (y/scale/motionPath) compose through a per-element
 // registry and PRESERVE the model's rotate() applied by applyElementFrame.
 
-type EaseFn = (t: number) => number
-
-const pow = (n: number) => ({
-  in: (t: number) => t ** n,
-  out: (t: number) => 1 - (1 - t) ** n,
-  inOut: (t: number) => (t < 0.5 ? (2 * t) ** n / 2 : 1 - (2 - 2 * t) ** n / 2),
-})
-
-const EASES: Record<string, EaseFn> = {
-  none: (t) => t,
-  linear: (t) => t,
-  'power1.in': pow(2).in, 'power1.out': pow(2).out, 'power1.inOut': pow(2).inOut,
-  'power2.in': pow(3).in, 'power2.out': pow(3).out, 'power2.inOut': pow(3).inOut,
-  'power3.in': pow(4).in, 'power3.out': pow(4).out, 'power3.inOut': pow(4).inOut,
-  'sine.in': (t) => 1 - Math.cos((t * Math.PI) / 2),
-  'sine.out': (t) => Math.sin((t * Math.PI) / 2),
-  'sine.inOut': (t) => -(Math.cos(Math.PI * t) - 1) / 2,
-}
+import { easeFn, type Ease, type EaseFn } from './ease.ts'
+export { cubicBezier, easeFn, isBezier, EASES, BEZIER_PRESETS } from './ease.ts'
+export type { Ease, EaseFn } from './ease.ts'
 
 // --- color + number interpolation --------------------------------------------
 
@@ -247,7 +234,7 @@ function samplePath(d: string, speeds?: number[]): ((t: number) => { x: number; 
 export interface TweenVars {
   duration?: number
   delay?: number
-  ease?: string
+  ease?: Ease
   repeat?: number
   yoyo?: boolean
   overwrite?: string // accepted for call-site compat; overwrite is always per-channel
@@ -284,7 +271,7 @@ export class Tween {
     this.delay = to.delay ?? 0
     this.repeat = to.repeat ?? 0
     this.yoyo = !!to.yoyo
-    this.ease = EASES[to.ease ?? 'power1.out'] ?? EASES.linear
+    this.ease = easeFn(to.ease, 'power1.out')
     register(this)
     // fromTo renders its from-state immediately (gsap immediateRender parity)
     if (from) this.start()
@@ -506,5 +493,9 @@ export const anim = {
   },
   get activeCount() {
     return live.size
+  },
+  /** true while a test drives the clock by hand (wall-clock safety nets stand down) */
+  get isManual() {
+    return manual
   },
 }

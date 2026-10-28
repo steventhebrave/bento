@@ -534,3 +534,10 @@ runs:
       # compile time (historySyncKeys); skipDoc is still the floor.
       shell: bento-step {0}
       run: node scripts/test-sync-history-override.ts
+
+    - name: Easing curves (named presets + cubic-bezier)
+      # Every pre-existing preset is unchanged; a CSS cubic-bezier lands where
+      # a browser lands it; overshoot survives, x is clamped, junk is linear;
+      # a tween accepts an array ease.
+      shell: bento-step {0}
+      run: node scripts/test-anim-bezier.ts

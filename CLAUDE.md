@@ -211,8 +211,11 @@ names provisional.
   whose RING alone takes the pointer (`pointer-events: stroke`) — its open middle passes
   presses/drags/double-clicks to the element, so grab-the-middle and double-click-to-edit
   still work; ring double-clicks are re-sent beneath; none under 44px on screen unless
-  anchored; layer z 3001, above Moveable's corner controls. Panel picker in Position & size. Rigs:
-  test-slides-anchor.ts, test-slides-anchor-browser.mjs.
+  anchored; layer z 3001, above Moveable's corner controls. Panel picker in Position & size.
+  `rotation` can be ABSENT in a file (compact decks omit it; the renderer reads 0) — anchor.ts's
+  trig treats a missing angle as 0; anything else doing trig on `el.rotation` must too (it once
+  put the crosshair at NaN, i.e. the slide's corner, for every element of the pendulum example).
+  Rigs: test-slides-anchor.ts, test-slides-anchor-browser.mjs.
 - **Signed writes / read-only tiers (v0.9.18)**: three file modes now, split
   from the old conflated `readonly`. (1) **Presentation package** = `doc.readonly`
   (unchanged: PLAYER file, present-only, collab stripped) — "Save as

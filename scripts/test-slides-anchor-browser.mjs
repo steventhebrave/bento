@@ -19,6 +19,10 @@
 //   5. the panel's nine-point picker sets it; its middle point removes it
 //   6. in the show a spin turns about the anchor: mid-spin and at the end the
 //      box's measured bounds are where a turn about that corner puts them
+//   7. an element with no `rotation` in its file (compact decks leave it out,
+//      as the pendulum example's gear and canvas do) gets its crosshair at its
+//      centre, not the slide's corner; dragging it stores a real anchor, and
+//      rotating then turns about it
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 import { boxes, tick } from './lib/present-probe.mjs'
 
@@ -44,12 +48,15 @@ const DOC = {
     ] },
     { id: 'p1', background: '#ffffff', transition: 'none', notes: '', elements: [rect('g', 500, 300, 100, 100, '#000000', { anchor: [0, 0] })],
       anim: [{ id: 'sp', el: 'g', type: 'spin', deg: 90, duration: 1, ease: 'linear' }] },
+    { id: 'n1', background: '#ffffff', transition: 'none', notes: '', elements: [
+      { id: 'gear', type: 'svg', x: 400, y: 200, w: 300, h: 300, markup: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#ffb86b"/></svg>' },
+    ] },
   ],
 }
 /** the anchor's point on the slide for a model element (the rig's own maths, not anchor.ts) */
 const pointOf = (e) => {
   const a = e.anchor ?? [0.5, 0.5]
-  const lx = (a[0] - 0.5) * e.w, ly = (a[1] - 0.5) * e.h, r = (e.rotation * Math.PI) / 180
+  const lx = (a[0] - 0.5) * e.w, ly = (a[1] - 0.5) * e.h, r = ((e.rotation ?? 0) * Math.PI) / 180
   return { x: e.x + e.w / 2 + lx * Math.cos(r) - ly * Math.sin(r), y: e.y + e.h / 2 + lx * Math.sin(r) + ly * Math.cos(r) }
 }
 
@@ -182,6 +189,24 @@ await page.click('.ed-props-scroll:not([hidden]) .ed-anchor-pt >> nth=4')
 await page.waitForTimeout(150)
 c = await el('c')
 ok(!('anchor' in c) && !!(await page.$('.ed-anchor-handle.centre')), 'its middle point puts it back in the centre: no anchor at all')
+
+console.log('\nan element with no rotation in its file (compact decks leave it out)')
+await page.evaluate(() => document.querySelectorAll('.ed-sidebar .ed-thumb')[2].click())
+await page.waitForTimeout(200)
+ok(!('rotation' in (await el('gear'))), 'the svg element really has no rotation')
+await select('gear')
+const hg = await centreOf('.ed-anchor-handle')
+const gmid = await toScreen(550, 350)
+ok(!!hg && near(hg.x, gmid.x, 1) && near(hg.y, gmid.y, 1), `its crosshair is at its centre (${hg && `${hg.x.toFixed(1)},${hg.y.toFixed(1)}`}), not the slide's corner`)
+const gtl = await toScreen(400 + 3, 200 + 2)
+await drag(ring(hg), [[(gtl.x - hg.x) / 2, (gtl.y - hg.y) / 2], [gtl.x - hg.x, gtl.y - hg.y]])
+let g = await el('gear')
+ok(JSON.stringify(g.anchor) === '[0,0]' && g.x === 400 && g.y === 200, `dragging it snaps to the top-left corner and the element stays put (${JSON.stringify(g.anchor)})`)
+before = pointOf(g)
+await drag(await centreOf('.moveable-rotation-control'), arc(10, 12, 6))
+g = await el('gear')
+ok(Math.abs(g.rotation) > 20 && near(pointOf(g).x, before.x) && near(pointOf(g).y, before.y),
+  `rotating it turns ${g.rotation}° about that corner (anchor at ${pointOf(g).x.toFixed(2)},${pointOf(g).y.toFixed(2)})`)
 
 console.log('\na spin turns about the anchor in the show')
 await page.evaluate(() => window.bento.anim.setManual(true))

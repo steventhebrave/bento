@@ -14,6 +14,8 @@
 //      anchor (or the centre) is exactly the old centre spin
 //   3. the morph reads those frames (the swung box, not the model)
 //   4. the gate keeps a good anchor and drops a bad one; the schema knows it
+//   5. an element with no `rotation` (compact decks leave it out) is unturned,
+//      not NaN — the crosshair once landed on the slide's corner for these
 
 import { register } from 'node:module'
 import type { Slide } from '../slides/src/model.ts'
@@ -52,6 +54,13 @@ console.log('the geometry')
   const off = pivotOffset(box.w, box.h, a, 20, 1, 75)
   const after = anchorPoint({ ...box, x: box.x + off.x, y: box.y + off.y }, 95, a)
   ok(near(after.x, before.x, 1e-9) && near(after.y, before.y, 1e-9), 'pivotOffset keeps the anchor\'s point fixed through a turn')
+  // a file may leave `rotation` out (compact decks do; the renderer reads it as 0)
+  const none = anchorPoint(box, undefined, [0, 0])
+  const noneBox = boxForAnchor({ x: 100, y: 200 }, box.w, box.h, undefined, [0, 0])
+  const noneAt = anchorAt(box, undefined, { x: 100, y: 200 })
+  const noneOff = pivotOffset(box.w, box.h, [0, 0], undefined, 1, 90)
+  ok(near(none.x, 100) && near(none.y, 200) && near(noneBox.x, 100) && near(noneBox.y, 200) && near(noneAt[0], 0) && near(noneAt[1], 0) && Number.isFinite(noneOff.x) && Number.isFinite(noneOff.y),
+    'no rotation in the file is no turn, never NaN', { none, noneBox, noneAt, noneOff })
   ok(!hasAnchor({}) && !hasAnchor({ anchor: [0.5, 0.5] }) && hasAnchor({ anchor: [0, 0] }) && JSON.stringify(anchorOf({ anchor: [NaN, 1] })) === '[0.5,0.5]', 'hasAnchor / anchorOf: absent, centre and junk all mean the centre')
 }
 

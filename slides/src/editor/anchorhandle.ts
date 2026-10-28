@@ -156,7 +156,7 @@ export class AnchorHandle {
     const round = (v: number) => Math.round(v * 10000) / 10000
     const next: Anchor = [round(Math.min(10, Math.max(-10, a[0]))), round(Math.min(10, Math.max(-10, a[1])))]
     const el = this.store.element(id)
-    if (!el) return
+    if (!el || !next.every(Number.isFinite)) { this.refresh(); return } // never write a NaN (it saves as null)
     const centre = next[0] === 0.5 && next[1] === 0.5
     if (centre && !el.anchor) { this.refresh(); return }
     this.store.commit(() => {

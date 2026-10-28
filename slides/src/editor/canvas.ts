@@ -1202,7 +1202,7 @@ export class SlideCanvas {
     // it — the anchor's point on the slide is held while Moveable turns or
     // sizes the box, and the box is moved to keep it there. Single targets
     // only: a group turns and sizes about the group, as before.
-    const pivots = new Map<HTMLElement, { p: Pt; a: Anchor; rotation: number; w: number; h: number }>()
+    const pivots = new Map<HTMLElement, { p: Pt; a: Anchor; rotation: number | undefined; w: number; h: number }>()
     const notePivot = (target: HTMLElement) => {
       pivots.delete(target)
       const el = target.dataset.elId ? this.store.element(target.dataset.elId) : undefined

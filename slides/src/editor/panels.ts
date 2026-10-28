@@ -19,7 +19,10 @@ import { CODE_SCOPES, DEFAULT_CODE_COLORS } from '../code'
 import { TIPS } from '../tips'
 import { DATE_PRESETS, TIME_PRESETS, OTHER_FIELDS, formatDate } from '../datefmt'
 import { shrinkImageFile, shrinkNote, fmtBytes } from './shrink'
-import { revealInOrder, revealTogether, removeReveal, type StepPatch } from './reveal'
+import { revealInOrder, revealTogether, removeReveal, readingOrder, type StepPatch } from './reveal'
+import { usesAnim } from '../animseq'
+import { effectDef } from '../effects/index.ts'
+import { addEffects, dropDangling, removeEffects } from './animedit'
 import { stepOf } from '../steps'
 import { ICONS } from '../icons'
 import { LayersUI } from './layers'
@@ -2296,13 +2299,27 @@ export class PropsPanel {
   // --- reveal verbs (editor/reveal.ts decides, this applies) ---------------
 
   /** Number the selection in reading order: top-to-bottom, then left-to-right. */
-  revealInOrder(els: SlideElement[]) { this.applySteps(revealInOrder(this.store.slide.elements, els)) }
+  revealInOrder(els: SlideElement[]) {
+    // a slide with an animation sequence gets fade-ins on successive clicks
+    if (usesAnim(this.store.slide)) return this.edit(() => { for (const el of readingOrder(els)) addEffects(this.store.slide, [el.id], 'fade-in') }, true)
+    this.applySteps(revealInOrder(this.store.slide.elements, els))
+  }
 
   /** The whole selection on one step, after everything else on the slide. */
-  revealTogether(els: SlideElement[]) { this.applySteps(revealTogether(this.store.slide.elements, els)) }
+  revealTogether(els: SlideElement[]) {
+    if (usesAnim(this.store.slide)) return this.edit(() => { addEffects(this.store.slide, readingOrder(els).map((e) => e.id), 'fade-in') }, true)
+    this.applySteps(revealTogether(this.store.slide.elements, els))
+  }
 
   /** Shown with the slide again. */
-  removeReveal(els: SlideElement[]) { this.applySteps(removeReveal(els)) }
+  removeReveal(els: SlideElement[]) {
+    if (usesAnim(this.store.slide)) {
+      const ids = new Set(els.map((e) => e.id))
+      const gone = new Set((this.store.slide.anim ?? []).filter((fx) => ids.has(fx.el) && effectDef(fx.type)?.kind === 'entrance').map((fx) => fx.id))
+      return this.edit(() => removeEffects(this.store.slide, gone), true)
+    }
+    this.applySteps(removeReveal(els))
+  }
 
   private applySteps(patches: StepPatch[]) {
     if (!patches.length) return
@@ -2319,7 +2336,10 @@ export class PropsPanel {
 
   /** The three reveal verbs as a captioned button row (multi panel + Presenting). */
   private revealRow(els: SlideElement[]) {
-    const stepped = els.some((e) => stepOf(e) > 0)
+    const seq = usesAnim(this.store.slide)
+    const stepped = seq
+      ? (this.store.slide.anim ?? []).some((fx) => els.some((e) => e.id === fx.el) && effectDef(fx.type)?.kind === 'entrance')
+      : els.some((e) => stepOf(e) > 0)
     const row = document.createElement('div')
     row.className = 'ed-reveal-row'
     const cap = document.createElement('span')
@@ -2341,7 +2361,9 @@ export class PropsPanel {
     this.host.appendChild(row)
     const hint = document.createElement('p')
     hint.className = 'ed-hint'
-    hint.textContent = t('Numbered badges on the canvas show the order; click one for the next step.')
+    hint.textContent = seq
+      ? t('This slide has an animation list: these add fade-ins to it. Timing, order and other effects are in the Animate tab.')
+      : t('Numbered badges on the canvas show the order; click one for the next step.')
     this.host.appendChild(hint)
   }
 
@@ -2375,6 +2397,7 @@ export class PropsPanel {
     const ids = new Set(els.map((e) => e.id))
     this.store.commit(() => {
       this.store.slide.elements = this.store.slide.elements.filter((e) => !ids.has(e.id))
+      dropDangling(this.store.slide)
     })
     this.store.select([])
   }

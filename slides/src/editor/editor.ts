@@ -13,6 +13,10 @@ import {
   type ChartElement, type ShapeKind, type Slide, type SlideElement, type TableElement } from '../model'
 import { THEME_CHOICES, setTheme, themeChoice } from '../../../kernel/src/theme.ts'
 import type { InPlaceOutcome } from '../update'
+import { AnimUI } from './animui'
+import { AnimPane } from './animpane'
+import { AnimPreview } from './animpreview'
+import { dropDangling } from './animedit'
 import { APP_VERSION, applyUpdate, applyUpdateInPlace, autoCheckEnabled, canUpdateInPlace, checkForUpdates, compareVersions, offlineEnabled, sandboxed, selfUpdateEnabled, setAutoCheck, setOffline } from '../update'
 import { CHART_PRESETS } from '../charts'
 import { cssColor, renderSlide, renderThumbnail } from '../render'
@@ -144,6 +148,9 @@ function menuLabel(label: string, desc: string, row: HTMLElement): HTMLSpanEleme
 export class Editor {
   private canvas!: SlideCanvas
   private panel!: PropsPanel
+  private animUI = new AnimUI()
+  private animPane!: AnimPane
+  private propsTabs!: { format: HTMLButtonElement; animate: HTMLButtonElement; formatHost: HTMLElement; animHost: HTMLElement }
   /** Sidebar multi-selection: PARENT indices (slidesel.ts). The current slide
    *  is the anchor and the canvas slide; this set is what a drag moves and
    *  Delete removes. Empty = just the current slide, as before. */
@@ -525,6 +532,7 @@ export class Editor {
       if (zb) corner.appendChild(zb)
     })
     this.props = div('ed-props')
+    this.buildPropsTabs()
     main.append(this.sidebar, this.makeResizer('left'), canvasWrap, this.makeResizer('right'), this.props)
 
     this.root.append(bar, main)
@@ -598,10 +606,65 @@ export class Editor {
     this.canvas = new SlideCanvas(canvasWrap, this.store)
     this.canvas.onCommentModeChange = (on) => commentB.classList.toggle('ed-btn-armed', on)
     this.canvas.onSlideNav = (dir) => this.store.goToLinear(dir)
-    this.panel = new PropsPanel(this.props, this.store)
+    this.panel = new PropsPanel(this.propsTabs.formatHost, this.store)
     this.panel.onListIndent = (dir) => { this.canvas.indentList(dir) }
+    // the Animate tab: a fresh pane state per build (a language switch rebuilds)
+    this.animUI = new AnimUI()
+    const preview = new AnimPreview({
+      surface: () => this.canvas.previewSurface(),
+      setPreviewing: (on) => this.canvas.setPreviewing(on),
+      repaint: () => this.canvas.render(),
+    }, this.store)
+    this.animPane = new AnimPane(this.store, this.animUI, preview, this.buildScope.signal)
+    this.propsTabs.animHost.appendChild(this.animPane.root)
+    this.animUI.requestOpen = () => this.showPropsTab('animate')
+    this.canvas.setAnimUI(this.animUI, (elId) => { this.store.select([elId]); this.showPropsTab('animate') })
+    this.showPropsTab(lsGet('bento-props-tab') === 'animate' ? 'animate' : 'format', false)
 
     if (!canWriteDeck(this.store.doc.collab)) this.enterReaderMode()
+  }
+
+  /**
+   * The right panel's two tabs: Format (the properties panel, unchanged) and
+   * Animate (the animation pane). Each tab is its own scroller so the panel's
+   * scroll memory stays per tab. The Animate tab needs room for its timeline,
+   * so the panel is at least 300px wide while it shows.
+   */
+  private buildPropsTabs() {
+    const tabs = div('ed-props-tabs')
+    tabs.setAttribute('role', 'tablist')
+    const tab = (label: string, title: string, which: 'format' | 'animate') => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'ed-props-tab'
+      b.textContent = label
+      b.title = title
+      b.setAttribute('role', 'tab')
+      b.addEventListener('click', () => this.showPropsTab(which))
+      tabs.appendChild(b)
+      return b
+    }
+    const format = tab(t('Format'), t('Properties of the slide or the selection'), 'format')
+    const animate = tab(t('Animate'), t('The slide’s animations: what happens on each click'), 'animate')
+    const formatHost = div('ed-props-scroll')
+    const animHost = div('ed-props-scroll ed-anim-host')
+    this.props.append(tabs, formatHost, animHost)
+    this.propsTabs = { format, animate, formatHost, animHost }
+  }
+
+  private showPropsTab(which: 'format' | 'animate', persist = true) {
+    const anim = which === 'animate'
+    this.propsTabs.format.classList.toggle('on', !anim)
+    this.propsTabs.animate.classList.toggle('on', anim)
+    this.propsTabs.format.setAttribute('aria-selected', String(!anim))
+    this.propsTabs.animate.setAttribute('aria-selected', String(anim))
+    this.propsTabs.formatHost.hidden = anim
+    this.propsTabs.animHost.hidden = !anim
+    this.props.classList.toggle('ed-anim-on', anim)
+    if (anim && this.props.classList.contains('ed-collapsed')) this.togglePanel('right')
+    if (persist) lsSet('bento-props-tab', which)
+    this.animUI.setOpen(anim)
+    if (anim) this.animPane.refresh()
   }
 
   /** Live viewer: block user edits (store.readOnly), hide editing chrome, and
@@ -3430,6 +3493,7 @@ export class Editor {
     const ids = new Set(this.store.selection)
     this.store.commit(() => {
       this.store.slide.elements = this.store.slide.elements.filter((e) => !ids.has(e.id))
+      dropDangling(this.store.slide) // an effect on a deleted element would cost the audience a dead click
     })
     this.store.select([])
   }

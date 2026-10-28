@@ -26,6 +26,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 type DrawKind = 'line' | 'path' | 'connector' | 'curve-connector' | 'free' | 'poly'
 import { CommentsUI } from './comments'
 import { StepBadges } from './stepbadges'
+import { AnimMoveHandle } from './animmove'
+import type { AnimUI } from './animui'
 import type { Peer } from '../sync/session'
 
 /** How far a finger may travel and still count as a tap rather than a drag.
@@ -94,6 +96,7 @@ export class SlideCanvas {
   private drawOverlay: HTMLElement | null = null
   private comments!: CommentsUI
   private stepBadges!: StepBadges
+  private animMove: AnimMoveHandle | null = null
 
   constructor(
     private wrap: HTMLElement,
@@ -559,6 +562,7 @@ export class SlideCanvas {
     if (this.zoomLabel) this.zoomLabel.textContent = `${Math.round(this.scale * 100)}%`
     this.comments?.refresh()
     this.stepBadges?.refresh()
+    this.animMove?.refresh()
     this.drawRemote()
   }
 
@@ -1004,6 +1008,24 @@ export class SlideCanvas {
       .filter((n): n is HTMLElement => !!n)
   }
 
+  /**
+   * The animation pane's hooks: the move-path handle lives in the scaled stage,
+   * and step badges show the sequence's clicks (badge click → onBadge).
+   */
+  setAnimUI(ui: AnimUI, onBadge: (elId: string) => void) {
+    this.animMove = new AnimMoveHandle(this.scaleHost, this.store, ui, () => this.scale, () => this.surface, (x, y) => this.slidePointAt(x, y))
+    this.stepBadges.setAnim(ui, onBadge)
+    this.animMove.refresh()
+  }
+
+  /** The rendered slide, for the animation preview to paint on. */
+  previewSurface(): HTMLElement | null { return this.surface }
+
+  /** While the canvas shows animation state, the selection chrome steps aside. */
+  setPreviewing(on: boolean) {
+    this.stage.classList.toggle('ed-previewing', on)
+  }
+
   private syncTargets() {
     // A single selected line/curve/connector is edited with endpoint handles
     // (LineEditor), not Moveable's box — grab an end and drag it.
@@ -1037,6 +1059,7 @@ export class SlideCanvas {
     this.selecto.setSelectedTargets(targets)
     this.updateTableHandles()
     this.stepBadges?.refresh()
+    this.animMove?.refresh()
   }
 
   // --- column resize handles (single selected table) --------------------------

@@ -18,9 +18,12 @@ import type { Store } from '../store'
 import { stepOf } from '../steps'
 import { cycleStep, hasSteps } from './reveal'
 import { t } from '../i18n'
+import { clicksByElement, planAnim, usesAnim } from '../animseq'
+import type { AnimUI } from './animui'
 
 export class StepBadges {
   private layer: HTMLElement
+  private anim: { ui: AnimUI; onBadge: (elId: string) => void } | null = null
 
   constructor(
     private store: Store,
@@ -32,10 +35,50 @@ export class StepBadges {
     stageParent.appendChild(this.layer)
   }
 
+  /** On a slide with an animation sequence the badges show ITS clicks. */
+  setAnim(ui: AnimUI, onBadge: (elId: string) => void) {
+    this.anim = { ui, onBadge }
+    ui.on(() => this.refresh())
+    this.refresh()
+  }
+
+  /**
+   * Sequence badges: one per animated element, reading the clicks it moves on
+   * ("1·3"; "▸" for the arrival group). A click selects the element and opens
+   * the Animate tab on its effects.
+   */
+  private refreshAnim() {
+    const slide = this.store.slide
+    const scale = this.scaleOf()
+    const selected = new Set(this.store.selection)
+    const lit = new Set(this.anim?.ui.selected ?? [])
+    const plan = planAnim(slide.anim)
+    const litEls = new Set(plan.effects.filter((p) => lit.has(p.fx.id)).map((p) => p.fx.el))
+    for (const [id, clicks] of clicksByElement(plan)) {
+      const el = slide.elements.find((e) => e.id === id)
+      if (!el) continue
+      const badge = document.createElement('button')
+      badge.className = 'ed-step-badge ed-anim-badge' + (selected.has(el.id) || litEls.has(el.id) ? ' sel' : '')
+      badge.textContent = clicks.map((c) => (c === 0 ? '▸' : String(c))).join('·')
+      badge.title = t('Animates on {clicks} — click to edit in the Animate tab', {
+        clicks: clicks.map((c) => (c === 0 ? t('arrival') : t('click {n}', { n: String(c) }))).join(', '),
+      })
+      badge.style.left = `${el.x * scale - 9}px`
+      badge.style.top = `${el.y * scale - 9}px`
+      badge.addEventListener('mousedown', (ev) => ev.stopPropagation()) // not a marquee start
+      badge.addEventListener('click', (ev) => {
+        ev.stopPropagation()
+        this.anim?.onBadge(el.id)
+      })
+      this.layer.appendChild(badge)
+    }
+  }
+
   /** Rebuild the badges for the current slide (after render/relayout/selection). */
   refresh() {
     this.layer.innerHTML = ''
     const slide = this.store.slide
+    if (slide && usesAnim(slide)) { this.refreshAnim(); return }
     if (!slide || !hasSteps(slide.elements)) return
     const scale = this.scaleOf()
     const selected = new Set(this.store.selection)

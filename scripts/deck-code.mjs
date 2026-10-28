@@ -12,8 +12,8 @@
 //   node scripts/deck-code.mjs pack dir [out.bento.html] [--shell shell.html]
 //       reads dir/deck.json, inlines every "@file …" reference, checks each
 //       script parses as a module, and writes the document into a shell:
-//       out.bento.html's own shell when it exists (an update keeps the file's
-//       app), else --shell, else slides/dist-single/Bento_Slides.bento.html.
+//       --shell when given, else out.bento.html's own shell when it exists (an
+//       update keeps the file's app), else slides/dist-single/Bento_Slides.bento.html.
 //
 //   node scripts/deck-code.mjs new <dir> <name> --kind effect|canvas
 //       writes dir/scripts/<name>.js from a template and registers it in deck.json
@@ -174,7 +174,8 @@ async function pack(dir, out, shellPath) {
     doc = full
   }
   out ??= dir.replace(/[\\/]$/, '').replace(/-code$/, '') + '.bento.html'
-  const shellFile = existsSync(out) ? out : shellPath ?? join(root, 'slides/dist-single/Bento_Slides.bento.html')
+  // an explicit --shell wins; else the file's own shell (an update keeps its app); else the built one
+  const shellFile = shellPath ?? (existsSync(out) ? out : join(root, 'slides/dist-single/Bento_Slides.bento.html'))
   if (!existsSync(shellFile)) die(`no shell at ${shellFile} — build one (cd slides && npm run build:single) or pass --shell`)
   writeFileSync(out, spliceDoc(readFileSync(shellFile, 'utf8'), doc))
   console.log(`packed ${relative(process.cwd(), out)} (shell: ${relative(process.cwd(), shellFile)})`)

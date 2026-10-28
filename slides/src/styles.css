@@ -3008,6 +3008,20 @@ input.ed-toggle { width: 16px; height: 16px; accent-color: #5E7699; cursor: poin
 .ed-previewing .moveable-control-box { visibility: hidden !important; }
 .ed-previewing .ed-step-layer { visibility: hidden; }
 .ed-previewing .ed-anim-ghost { display: none; }
+.ed-previewing .ed-anchor-layer { display: none; }
+/* FORK: an element's anchor (editor/anchorhandle.ts) — a crosshair in a ring,
+   shown only for an element that has one (the centre is everyone's default,
+   and a target there would sit where people double-click to edit text) */
+.ed-anchor-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3001; pointer-events: none; } /* above Moveable's controls: an anchor put on a corner stays grabbable */
+.ed-anchor-handle {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box;
+  border: 2px solid var(--blue); background: var(--surface);
+  pointer-events: auto; cursor: crosshair; touch-action: none; opacity: 0.9;
+}
+.ed-anchor-handle::before, .ed-anchor-handle::after { content: ''; position: absolute; background: var(--blue); }
+.ed-anchor-handle::before { left: 50%; top: -5px; width: 2px; height: 20px; margin-left: -1px; }
+.ed-anchor-handle::after { top: 50%; left: -5px; height: 2px; width: 20px; margin-top: -1px; }
+.ed-anchor-handle:hover { opacity: 1; }
 
 /* the move effect's path, ghost and end handle — in the SCALED stage (slide px) */
 .ed-anim-move-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; }
@@ -3093,3 +3107,13 @@ dialog.ed-codedialog .ed-code-gap { flex: 1; }
 .ed-driven-badge { font-style: italic; font-weight: 700; margin-left: 3px; }
 .ed-canvas-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 .ed-canvas-btns .ed-btn { padding: 4px 10px; font-size: 12px; border: 1px solid var(--line); background: var(--surface); }
+
+/* the anchor control in Position & size (panels.ts anchorControl) */
+.ed-anchor-ctl { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ed-anchor-grid { display: grid; grid-template-columns: repeat(3, 14px); gap: 3px; padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); flex: none; }
+.ed-anchor-pt { width: 14px; height: 14px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; cursor: pointer; }
+.ed-anchor-pt:hover { border-color: var(--ink); }
+.ed-anchor-pt.on { background: var(--blue); border-color: var(--blue); }
+.ed-anchor-nums { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.ed-anchor-nums .ed-mini input { min-width: 0; }
+.ed-anchor-nums .ed-mini span { white-space: nowrap; }

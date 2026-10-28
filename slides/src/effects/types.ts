@@ -53,6 +53,8 @@ export interface FrameSource {
   opacity?: number
   fill?: string
   color?: string
+  /** FORK: the pivot, as fractions of the box (anchor.ts); absent = the centre */
+  anchor?: [number, number]
 }
 
 /**

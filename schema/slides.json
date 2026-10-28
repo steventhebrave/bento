@@ -280,6 +280,17 @@
             "right"
           ]
         },
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "backdropFilter": {
           "type": "number",
           "minimum": 0,
@@ -519,6 +530,17 @@
     "shape": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "backdropFilter": {
           "type": "number",
           "minimum": 0,
@@ -751,6 +773,17 @@
     "image": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "backdropFilter": {
           "type": "number",
           "minimum": 0,
@@ -877,6 +910,17 @@
     "svg": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "asset": {
           "type": "string",
           "maxLength": 200,
@@ -1009,6 +1053,17 @@
     "chart": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "backdropFilter": {
           "type": "number",
           "minimum": 0,
@@ -1248,6 +1303,17 @@
     "table": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "backdropFilter": {
           "type": "number",
           "minimum": 0,
@@ -1363,6 +1429,17 @@
     "media": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "autoplay": {
           "type": "boolean"
         },
@@ -1519,6 +1596,17 @@
     "embed": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "app": {
           "type": "string",
           "maxLength": 200,
@@ -1647,6 +1735,17 @@
             "center",
             "right"
           ]
+        },
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
         },
         "backdropFilter": {
           "type": "number",
@@ -1800,6 +1899,17 @@
     "canvas": {
       "type": "object",
       "properties": {
+        "anchor": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "description": "FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]"
+        },
         "backdropFilter": {
           "type": "number",
           "minimum": 0,

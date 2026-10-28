@@ -206,6 +206,14 @@ jobs:
         # canvas; driven-by marks; a rename following references in one undo;
         # Insert → Code canvas; Stop working on the first click after an edit.
         run: node scripts/test-slides-code-editor-browser.mjs
+      - name: Element anchors in Chromium
+        # FORK. Trusted mouse on Moveable's own controls: rotate and resize
+        # hold the anchor's point (Alt-resize hands back Moveable's own); no
+        # anchor still turns about the centre; the crosshair drags (snapping
+        # to the box's nine points), double-clicks back to the centre, one
+        # undo each; the panel's picker; a spin in the show turns about the
+        # anchor (measured bounds at 45° and 90°), and ← restores it.
+        run: node scripts/test-slides-anchor-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

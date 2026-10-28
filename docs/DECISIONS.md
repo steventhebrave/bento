@@ -12040,3 +12040,33 @@ deck's owner (option A of the design):
   718 KB of JavaScript as plaintext in a `<style>` block (the app still
   worked; the conformance gate passed it). test-slides-code-present-browser
   checks the built shell for exactly that.
+
+## 2026-10-28 — FORK: an element's anchor is a pivot, not a new geometry
+
+`ElementBase.anchor?: [number, number]` — fractions of the element's box in
+its own unrotated frame; absent = the centre. Settled:
+
+- **The model keeps its meaning.** An element is still a box rotated by
+  `rotation` about its CENTRE. The anchor changes only where operations
+  pivot: turning about it is the same rotation plus a move of the box that
+  keeps the anchor's point fixed (anchor.ts `pivotOffset`, `boxForAnchor`).
+  So a renderer, an older shell, the morph, thumbnails and print draw an
+  anchored element exactly where they always would; nothing in render.ts
+  changed.
+- **Spin effects turn about it**, by adding that offset to the state, so the
+  pure state function, ← and the morph's end frames carry it for free; spins
+  chain about the anchor wherever earlier effects carried it. Script effects
+  see it as `ctx.el.anchor`.
+- **The editor rotates and resizes a single element about it** by moving the
+  box after Moveable turns or sizes it (Moveable itself is untouched — hard-
+  won details 1–2). With an anchor set, Alt hands resize back to Moveable's
+  own (the opposite edge holds); without one, Alt still resizes from the
+  centre. Groups turn and size about the group, as before.
+- **Fractions, not pixels**, so a resize keeps the anchor at the same place
+  on the shape; values outside 0..1 (clamped to ±10) put it outside the box —
+  a pendulum's pivot above its bob. The centre is stored as no anchor at all.
+- **The canvas crosshair appears only for an element that has an anchor.**
+  Shown at every selected element's centre, it sat exactly where people
+  double-click to edit text (two existing rigs tripped on it). An element
+  gets one from the Anchor picker in Position & size; from then on its
+  crosshair drags it, and double-clicking the crosshair removes it.

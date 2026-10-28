@@ -14,7 +14,7 @@ export const EFFECT_TEMPLATE = `// A SCRIPT EFFECT. The animation pane owns WHEN
 //   base    the element's frame from every effect before this one:
 //           { x, y, w, h, rotation, opacity, scale, fill?, color? }
 //   params  the values set in the pane (declared in meta.params below)
-//   ctx     { t, duration, click, el: {w, h}, slide: {w, h},
+//   ctx     { t, duration, click, el: {w, h, anchor}, slide: {w, h},
 //             random(), noise(x), lerp(a, b, t), clamp(v, lo, hi) }
 //
 // Return only what you change. It must be a pure function of its inputs:

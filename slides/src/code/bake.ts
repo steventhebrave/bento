@@ -20,6 +20,7 @@
 import type { AnimEffect, BentoDoc, Slide } from '../model'
 import { planAnim, stateAt, type AnimPlan, type Planned } from '../animseq.ts'
 import { frameOfState, type Frame, type ScriptSampler } from '../effects/index.ts'
+import { anchorOf } from '../anchor.ts'
 
 /** Samples per second of effect; the cap keeps a 20 s effect affordable. */
 export const SAMPLE_RATE = 120
@@ -50,7 +51,8 @@ export interface BakeJob {
   params: Record<string, number | string | boolean>
   duration: number
   click: number
-  el: { w: number; h: number }
+  /** the element's size, and its anchor (fractions of the box; [0.5, 0.5] = centre) */
+  el: { w: number; h: number; anchor: [number, number] }
   slide: { w: number; h: number }
   /** seed for ctx.random / ctx.noise: the effect's id, so a deck replays identically */
   seed: string
@@ -100,11 +102,12 @@ export function bakeJob(slide: BakeSlide, doc: Pick<BentoDoc, 'scripts' | 'size'
     samples.push({ t, p: pe.ease(k / n), base: frameOfState(el, s) })
   }
   const params = { ...(fx.params ?? {}) }
-  const head = JSON.stringify([name, FNV(src), src.length, params, pe.duration, pe.group, el.w, el.h, doc.size?.width, doc.size?.height, fx.id])
+  const anchor = anchorOf(el)
+  const head = JSON.stringify([name, FNV(src), src.length, params, pe.duration, pe.group, el.w, el.h, anchor, doc.size?.width, doc.size?.height, fx.id])
   const key = FNV(head + JSON.stringify(samples.map((x) => [x.p, x.base])))
   return {
     track: trackKey(slide.id, fx, pe.index), name, src, params, duration: pe.duration, click: pe.group,
-    el: { w: el.w, h: el.h }, slide: { w: doc.size?.width ?? 1280, h: doc.size?.height ?? 720 },
+    el: { w: el.w, h: el.h, anchor: [anchor[0], anchor[1]] }, slide: { w: doc.size?.width ?? 1280, h: doc.size?.height ?? 720 },
     seed: fx.id ?? String(pe.index), samples, key,
   }
 }

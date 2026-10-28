@@ -29,6 +29,16 @@ export interface ElementBase {
   rotation: number
   opacity: number
   /**
+   * FORK — the element's anchor: the point it pivots on, as fractions of its
+   * box in its own unrotated frame. Absent = the centre ([0.5, 0.5]); [0, 0]
+   * is the top-left corner; values outside 0..1 sit outside the box (a
+   * pendulum's pivot above its bob). Spin effects turn about it, and the
+   * editor rotates and resizes about it. x/y/w/h/rotation keep their meaning
+   * — the rotation is still about the box's centre — so a renderer that does
+   * not know `anchor` draws the element exactly where this one does.
+   */
+  anchor?: [number, number]
+  /**
    * Drop shadow(s), rendered with CSS drop-shadow so they follow the
    * element's alpha shape (rounded corners, ellipses, glyphs, image
    * cutouts). An array stacks: e.g. a dark elevation shadow plus a soft

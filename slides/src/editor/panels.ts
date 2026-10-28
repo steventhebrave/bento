@@ -26,6 +26,7 @@ import { addEffects, dropDangling, removeEffects } from './animedit'
 import { easeControl } from './easecurve'
 import type { EditorCode } from './codeui'
 import { codeEnabled } from '../code/host'
+import { anchorOf } from '../anchor'
 import { stepOf } from '../steps'
 import { ICONS } from '../icons'
 import { LayersUI } from './layers'
@@ -615,6 +616,7 @@ export class PropsPanel {
     )
     this.host.appendChild(geo)
     this.markDriven(el, geo)
+    this.row('Anchor', this.anchorControl(el))
 
     this.row('Role', this.select(
       ['none', 'title', 'subtitle', 'body', 'kicker'],
@@ -2510,6 +2512,52 @@ export class PropsPanel {
     hint.className = 'ed-hint ed-driven-hint'
     hint.textContent = t('ƒ During the show, script effects also drive: {keys}.', { keys: all.join(', ') })
     this.host.appendChild(hint)
+  }
+
+  /**
+   * FORK — the element's anchor (anchor.ts): nine points of the box, and the
+   * exact position as percentages of it (outside 0–100 sits outside the box).
+   * The centre is stored as no anchor at all.
+   */
+  private anchorControl(el: SlideElement): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.className = 'ed-anchor-ctl'
+    const a = anchorOf(el)
+    const set = (next: [number, number]) => this.mutate(el.id, (e) => {
+      const r = (v: number) => Math.round(Math.min(10, Math.max(-10, v)) * 10000) / 10000
+      const n: [number, number] = [r(next[0]), r(next[1])]
+      if (n[0] === 0.5 && n[1] === 0.5) delete e.anchor
+      else e.anchor = n
+    }, true)
+    const grid = document.createElement('div')
+    grid.className = 'ed-anchor-grid'
+    grid.setAttribute('role', 'radiogroup')
+    grid.setAttribute('aria-label', t('Anchor point'))
+    for (const y of [0, 0.5, 1]) for (const x of [0, 0.5, 1]) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'ed-anchor-pt' + (a[0] === x && a[1] === y ? ' on' : '')
+      b.setAttribute('role', 'radio')
+      b.setAttribute('aria-checked', String(a[0] === x && a[1] === y))
+      b.title = t('Anchor at {x}% across, {y}% down', { x: String(x * 100), y: String(y * 100) })
+      b.addEventListener('click', () => set([x, y]))
+      grid.appendChild(b)
+    }
+    const nums = document.createElement('div')
+    nums.className = 'ed-anchor-nums'
+    const pct = (i: 0 | 1, label: string) => {
+      const m = this.mini(label, Math.round(a[i] * 1000) / 10, (v) => {
+        if (!Number.isFinite(v)) return
+        const next: [number, number] = [a[0], a[1]]
+        next[i] = v / 100
+        set(next)
+      })
+      m.title = t('Percent of the box — 0 is the left/top edge, 100 the right/bottom; beyond sits outside it')
+      return m
+    }
+    nums.append(pct(0, '↔ %'), pct(1, '↕ %'))
+    wrap.append(grid, nums)
+    return wrap
   }
 
   /** FORK — a code canvas: its script, the script's parameters, its still. */

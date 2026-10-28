@@ -609,6 +609,14 @@ runs:
       shell: bento-step {0}
       run: node scripts/test-slides-code-format.ts
 
+    - name: Element anchor rig
+      # FORK. anchor.ts's maps invert each other at any rotation; a spin turns
+      # about the anchor (the anchor holds at every instant, spins chain, 360°
+      # comes home, no anchor = the old centre spin); the morph reads the
+      # swung frame; the gate keeps a good anchor and drops a bad one.
+      shell: bento-step {0}
+      run: node scripts/test-slides-anchor.ts
+
     - name: Deck code round trip rig
       # FORK. scripts/deck-code.mjs: extract → pack is lossless (a script
       # holding an end-of-script tag included, nothing outside #bento-doc

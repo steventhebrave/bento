@@ -132,6 +132,7 @@ Every element carries the common `ElementBase` fields, plus type-specific ones.
 | `x, y, w, h` | `number` | Frame in slide px (top-left origin). |
 | `rotation` | `number` | Degrees, clockwise. |
 | `opacity` | `number` | `0..1`. |
+| `anchor?` | `[number, number]` | FORK — the point the element pivots on, as fractions of its box in its own unrotated frame (`[0.5, 0.5]` = the centre, the default; `[0, 0]` = top-left; outside `0..1` sits outside the box). Spin effects turn about it; the editor rotates and resizes about it. `x, y, w, h, rotation` keep their meaning — the rotation is still about the box's centre — so a reader that ignores `anchor` draws the element in the same place. |
 | `shadow?` | `ShadowSpec \| ShadowSpec[]` | Drop shadow(s): `{ x?, y?, blur, color }`. An array stacks (e.g. elevation + glow). Follows the element's alpha shape. |
 | `fx?` | `Fx` | Presentation behaviour — runs in present mode only (see [`fx`](#fx-presentation-effects)). |
 | `link?` | `string` | While presenting, clicking jumps to this slide id. |
@@ -302,7 +303,7 @@ state.
 | `delay?` | `number` | Seconds after the trigger. |
 | `duration?` | `number` | Seconds. Defaults: appear/disappear instant; fade-in/out `0.5`; spin, move, script `1`. |
 | `ease?` | `Ease` | Defaults: fade-in `power1.out`, fade-out `power1.in`, spin/move `power2.inOut`, script `linear`. |
-| `deg?` | `number` | spin: signed degrees, clockwise positive (`720` = two turns). |
+| `deg?` | `number` | spin: signed degrees, clockwise positive (`720` = two turns), about the element's `anchor` (its centre when it has none). |
 | `dx?`, `dy?` | `number` | move: slide px, from wherever the element is when the move starts (moves chain). |
 | `fromDx?`, `fromDy?` | `number` | fade-in: start this far away and travel home while fading. |
 | `keys?` | `AnimKeyframe[]` | Keyframes over the effect's progress: `{ at: 0..1, dx?, dy?, deg?, opacity?, ease? }` — values mean what the type means; `ease` shapes the segment arriving at the keyframe. |
@@ -341,7 +342,7 @@ function:
   `(p, base, params, ctx) => partialFrame`. `p` is the eased progress
   (0..1), `base` the element's frame from every effect before this one
   (`{ x, y, w, h, rotation, opacity, scale, fill?, color? }`, slide px and
-  degrees), `ctx` `{ t, duration, click, el: {w,h}, slide: {w,h}, random(),
+  degrees), `ctx` `{ t, duration, click, el: {w,h,anchor}, slide: {w,h}, random(),
   noise(x), lerp(), clamp() }`. Return only what changes; `meta.drives` lists
   which keys it may change (absent = any of x, y, rotation, scale, opacity,
   fill, color).

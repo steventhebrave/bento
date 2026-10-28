@@ -202,6 +202,15 @@ names provisional.
   poster capture written in place with `store.touch()`, preview canvases, generated param
   controls). Rigs: test-slides-code-{format,sandbox-browser,present-browser,
   editor-browser}, test-deck-code. Trust model: docs/DECISIONS.md (FORK, code layer).
+- **Element anchor (FORK, `ElementBase.anchor`)** — a PIVOT, not new geometry:
+  fractions of the box (absent = centre); x/y/w/h/rotation keep their meaning
+  (rotation still about the centre). `src/anchor.ts` (pure maths); spin.ts adds the
+  pivot offset to the state; canvas.ts moves the box after Moveable rotates/resizes a
+  single element so the anchor's point holds (Alt-resize = Moveable's own when an
+  anchor is set); `editor/anchorhandle.ts` is the draggable crosshair, shown ONLY for an
+  element that has an anchor (at the centre it blocked text double-clicks; layer z
+  3001, above Moveable's corner controls); the panel picker in Position & size sets one. Rigs:
+  test-slides-anchor.ts, test-slides-anchor-browser.mjs.
 - **Signed writes / read-only tiers (v0.9.18)**: three file modes now, split
   from the old conflated `readonly`. (1) **Presentation package** = `doc.readonly`
   (unchanged: PLAYER file, present-only, collab stripped) — "Save as

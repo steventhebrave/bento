@@ -483,7 +483,10 @@ follows it. Effects accumulate — a moved arrow stays moved.
     { "id":"a4","el":"label-a","type":"fade-out","trigger":"click" } ] }
 ```
 Click 1 fades the label in while the arrow travels on a custom cubic-bezier;
-then the gear turns two turns anticlockwise; click 2 fades the label out. An
+then the gear turns two turns anticlockwise; click 2 fades the label out. A
+spin turns about the element's centre — or about its `"anchor"`, a point given
+as fractions of its box (`[0, 0]` = top-left corner, `[0.5, -0.4]` = above
+its middle), e.g. a pendulum rod swinging from its top: `"anchor":[0.5,0]`. An
 element whose FIRST effect is an entrance starts hidden. `ease` is a preset
 name or `[x1,y1,x2,y2]`. A slide with `"transition":"morph"` may set its own
 `"morphSeconds"` and `"morphEase"` (the deck default is `present.morphSeconds`

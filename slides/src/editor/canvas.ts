@@ -4,6 +4,8 @@
 // wires Moveable (drag/resize/rotate/snap) + Selecto (click & rubber-band
 // selection) + contenteditable text editing on top of it.
 
+import { AnchorHandle } from './anchorhandle'
+import { anchorOf, anchorPoint, boxForAnchor, hasAnchor, type Anchor, type Pt } from '../anchor'
 import Moveable from 'moveable'
 import Selecto from 'selecto'
 import type { Store } from '../store'
@@ -97,6 +99,10 @@ export class SlideCanvas {
   private comments!: CommentsUI
   private stepBadges!: StepBadges
   private animMove: AnimMoveHandle | null = null
+  /** FORK: the selected element's anchor (anchorhandle.ts) */
+  private anchorHandle: AnchorHandle | null = null
+  /** the one element Moveable handles right now, if exactly one */
+  private anchorSubject: SlideElement | null = null
 
   constructor(
     private wrap: HTMLElement,
@@ -332,6 +338,13 @@ export class SlideCanvas {
       (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, lockScroll)
     for (const e of ['dragEnd', 'resizeEnd', 'rotateEnd', 'dragGroupEnd', 'resizeGroupEnd', 'rotateGroupEnd'])
       (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, unlockScroll)
+    // the anchor crosshair steps aside while Moveable moves the element
+    for (const e of ['dragStart', 'resizeStart', 'rotateStart', 'dragGroupStart', 'resizeGroupStart', 'rotateGroupStart'])
+      (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, () => this.anchorHandle?.setGesture(true))
+    for (const e of ['dragEnd', 'resizeEnd', 'rotateEnd', 'dragGroupEnd', 'resizeGroupEnd', 'rotateGroupEnd'])
+      (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, () => this.anchorHandle?.setGesture(false))
+    this.anchorHandle = new AnchorHandle(this.scaleHost, store, () => this.scale,
+      () => (this.store.readOnly ? null : this.anchorSubject), (x, y) => this.slidePointAt(x, y))
 
     this.pathEditor = new PathEditor(this.scaleHost, store, () => this.syncTargets())
     this.pathEditor.setScaleGetter(() => this.scale)
@@ -563,6 +576,7 @@ export class SlideCanvas {
     this.comments?.refresh()
     this.stepBadges?.refresh()
     this.animMove?.refresh()
+    this.anchorHandle?.refresh()
     this.drawRemote()
   }
 
@@ -1054,6 +1068,8 @@ export class SlideCanvas {
     const same = current.length === targets.length && targets.every((t, i) => current[i] === t)
     if (!same) this.moveable.target = targets
     this.moveable.updateRect()
+    this.anchorSubject = targets.length === 1 && sel.length === 1 ? sel[0] : null
+    this.anchorHandle?.refresh()
     // Keep Selecto's continue-select memory in lockstep with the store —
     // otherwise shift-click resurrects targets from a previously shown slide.
     this.selecto.setSelectedTargets(targets)
@@ -1182,6 +1198,18 @@ export class SlideCanvas {
     // Shift while resizing keeps the aspect ratio; Alt/Option scales from
     // the center (both live per move, combinable)
     const resizeCenters = new Map<HTMLElement, { cx: number; cy: number }>()
+    // FORK: an element with an anchor (anchor.ts) rotates and resizes about
+    // it — the anchor's point on the slide is held while Moveable turns or
+    // sizes the box, and the box is moved to keep it there. Single targets
+    // only: a group turns and sizes about the group, as before.
+    const pivots = new Map<HTMLElement, { p: Pt; a: Anchor; rotation: number; w: number; h: number }>()
+    const notePivot = (target: HTMLElement) => {
+      pivots.delete(target)
+      const el = target.dataset.elId ? this.store.element(target.dataset.elId) : undefined
+      if (!el || !hasAnchor(el)) return
+      const a = anchorOf(el)
+      pivots.set(target, { p: anchorPoint(el, el.rotation, a), a, rotation: el.rotation, w: el.w, h: el.h })
+    }
     const noteResizeStart = (target: HTMLElement) => {
       resizeCenters.set(target, {
         cx: (parseFloat(target.style.left) || 0) + (parseFloat(target.style.width) || 0) / 2,
@@ -1199,7 +1227,14 @@ export class SlideCanvas {
       target.style.width = `${w}px`
       target.style.height = `${h}px`
       const c = resizeCenters.get(target)
-      if (inputEvent?.altKey && c) {
+      const pv = pivots.get(target)
+      // with an anchor: about the anchor, and Alt is the way back to Moveable's
+      // own (the opposite edge holds); without one, Alt is about the centre
+      if (pv && !inputEvent?.altKey) {
+        const b = boxForAnchor(pv.p, w, h, pv.rotation, pv.a)
+        target.style.left = `${b.x}px`
+        target.style.top = `${b.y}px`
+      } else if (inputEvent?.altKey && c && !pv) {
         target.style.left = `${c.cx - w / 2}px`
         target.style.top = `${c.cy - h / 2}px`
       } else {
@@ -1219,6 +1254,7 @@ export class SlideCanvas {
     mv.on('resizeStart', (e) => {
       syncKeepRatio(e.inputEvent as MouseEvent, e.target as HTMLElement)
       noteResizeStart(e.target as HTMLElement)
+      notePivot(e.target as HTMLElement)
     })
     mv.on('resize', (e) => {
       syncKeepRatio(e.inputEvent as MouseEvent, e.target as HTMLElement)
@@ -1229,10 +1265,19 @@ export class SlideCanvas {
       applyResize(ev.target as HTMLElement, ev.width, ev.height, ev.drag.left, ev.drag.top, e.inputEvent as MouseEvent)
     }))
     // Shift while rotating snaps to 15° steps
-    mv.on('rotateStart', (e) => { mv.throttleRotate = (e.inputEvent as MouseEvent | undefined)?.shiftKey ? 15 : 1 })
+    mv.on('rotateStart', (e) => {
+      mv.throttleRotate = (e.inputEvent as MouseEvent | undefined)?.shiftKey ? 15 : 1
+      notePivot(e.target as HTMLElement)
+    })
     mv.on('rotate', (e) => {
       mv.throttleRotate = (e.inputEvent as MouseEvent | undefined)?.shiftKey ? 15 : 1
       e.target.style.transform = `rotate(${e.rotation}deg)`
+      const pv = pivots.get(e.target as HTMLElement)
+      if (pv) {
+        const b = boxForAnchor(pv.p, pv.w, pv.h, e.rotation, pv.a)
+        e.target.style.left = `${b.x}px`
+        e.target.style.top = `${b.y}px`
+      }
     })
     mv.on('rotateGroup', (e) => e.events.forEach((ev) => {
       ev.target.style.transform = ev.transform

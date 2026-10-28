@@ -536,6 +536,8 @@ export const ELEMENT_CHECKS: Record<string, Check> = {
   link: tag((v) => (isWebUrl(v) ? v : cssValue()(v)), { type: 'string', maxLength: LIMITS.prose, description: 'slide id or http(s) URL' }),
   x: num(-1e6, 1e6), y: num(-1e6, 1e6), w: num(0, 1e6), h: num(0, 1e6),
   rotation: num(-3600, 3600), opacity: num(0, 1),
+  // FORK: the pivot, as fractions of the box (0.5, 0.5 = the centre)
+  anchor: tag((v) => (Array.isArray(v) && v.length === 2 ? list(2, num(-10, 10))(v) : DROP), { type: 'array', minItems: 2, maxItems: 2, items: { type: 'number', minimum: -10, maximum: 10 }, description: 'FORK: pivot for spin effects and editor rotate/resize, as fractions of the box; absent = [0.5, 0.5]' }),
   shadow: tag((v) => (Array.isArray(v) ? list(16, shadowSpec)(v) : shadowSpec(v)), { anyOf: [shadowSpec.schema!, { type: 'array', maxItems: 16, items: shadowSpec.schema! }] }),
   blur: num(0, 1000), backdropFilter: num(0, 1000), blend: cssValue(64),
   fx,

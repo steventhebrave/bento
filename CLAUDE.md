@@ -200,7 +200,10 @@ names provisional.
   trackKey = slide + effect, trackSampler), `showcode.ts` (live canvases on the show's
   click clock), `templates.ts`. Editor: `editor/codeui.ts` (chip, Deck code dialog,
   poster capture written in place with `store.touch()`, preview canvases, generated param
-  controls). Rigs: test-slides-code-{format,sandbox-browser,present-browser,
+  controls). The sandbox iframe is pinned `color-scheme: light` to match its own page: the
+  kernel theme sets color-scheme on <html>, and a frame whose scheme differs from its page's
+  gets an OPAQUE backdrop (CSS Color Adjust) — every live canvas sat on white in the dark
+  theme. Any new iframe needs the same. Rigs: test-slides-code-{format,sandbox-browser,present-browser,
   editor-browser}, test-deck-code. Trust model: docs/DECISIONS.md (FORK, code layer).
 - **Element anchor (FORK, `ElementBase.anchor`)** — a PIVOT, not new geometry:
   fractions of the box (absent = centre); x/y/w/h/rotation keep their meaning

@@ -17,6 +17,9 @@
 //      effects only); on again, both come back
 //   4. reduced motion shows the poster too
 //   5. the morph out of a slide starts from the script's end state
+//   6. a live canvas is see-through in the app's DARK theme: where the script
+//      draws nothing, the slide shows (the frame once got an opaque white
+//      backdrop there — its color-scheme differed from the sandbox page's)
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 import { deflateSync, crc32 } from 'node:zlib'
 import { readFileSync } from 'node:fs'
@@ -189,6 +192,29 @@ ok(b.slide === 'c2' && near(b.boxes.bob.x, 300, 2) && near(b.boxes.bob.y, 180, 3
 await tick(page, 1.2)
 b = await boxes(page)
 ok(near(b.boxes.bob.x, 500) && near(b.boxes.bob.y, 300), 'and lands on the next slide\'s frame')
+
+console.log('\na live canvas is see-through in the dark theme too')
+{
+  // only a corner square is drawn: the rest of the canvas must show the slide behind it
+  const DOT = `export const meta = { kind: 'canvas' }
+export default function draw(g) { g.fillStyle = '#ff0000'; g.fillRect(0, 0, 40, 40) }`
+  const DARK = {
+    ...DOC, scripts: { dot: { src: DOT } },
+    slides: [slide('d1', 'none', [{ id: 'cv', type: 'canvas', x: 700, y: 100, w: 300, h: 200, rotation: 0, opacity: 1, script: 'dot' }], { background: '#0f1420' })],
+  }
+  const dpage = await (await browser.newContext({ viewport: { width: 1280, height: 720 }, colorScheme: 'dark' })).newPage()
+  dpage.on('pageerror', (e) => errors.push(String(e)))
+  await openDeck(dpage, SHELL, DARK)
+  await dpage.evaluate(() => window.bento.code.setEnabled(true))
+  await present(dpage)
+  await dpage.waitForTimeout(800); await tick(dpage, 0)
+  const scheme = await dpage.evaluate(() => getComputedStyle(document.documentElement).colorScheme)
+  const drawn = await pixel(dpage, 710, 110)
+  const empty = await pixel(dpage, 900, 250)
+  ok(scheme.includes('dark') && isRed(drawn), `the app is in its dark theme (color-scheme ${scheme}) and the canvas drew live (${drawn})`)
+  ok(empty.every((v, i) => Math.abs(v - [15, 20, 32][i]) <= 3), `where it drew nothing the dark slide shows through, not white (${empty})`)
+  await dpage.close()
+}
 
 ok(errors.length === 0, 'no page errors', errors)
 await browser.close()

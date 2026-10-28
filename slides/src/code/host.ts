@@ -113,9 +113,14 @@ export class SandboxFrame {
     f.setAttribute('aria-hidden', 'true')
     f.tabIndex = -1
     f.className = visible ? 'bento-code-frame' : 'bento-code-frame bento-code-hidden'
+    // color-scheme:light matches the sandbox's own page, which declares none
+    // (= light). The app's theme sets color-scheme on <html> (kernel
+    // theme.ts) and the frame would inherit it; a frame whose scheme differs
+    // from its page's gets an OPAQUE backdrop in the page's scheme (CSS Color
+    // Adjust), so in the dark theme every live canvas sat on solid white.
     f.style.cssText = visible
-      ? 'position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;pointer-events:none;display:block'
-      : 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;opacity:0;pointer-events:none'
+      ? 'position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;color-scheme:light;pointer-events:none;display:block'
+      : 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;opacity:0;color-scheme:light;pointer-events:none'
     f.srcdoc = sandboxSrcdoc()
     this.iframe = f
     this.ready = new Promise((res) => { this.markReady = res })

@@ -1391,6 +1391,10 @@ a.ed-btn { text-decoration: none; }  /* the update block's "What's new" link is 
 
 .ed-comment-layer { position: absolute; inset: 0; pointer-events: none; z-index: 12; }
 
+/* FORK: the slide panel's background picture (panels.ts backgroundImageControl) */
+.ed-bgimg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ed-bgimg-thumb { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+
 /* reveal-step badges (editor/stepbadges.ts): editor-only chrome beside the
    rendered slide, never inside it */
 .ed-step-layer { position: absolute; inset: 0; pointer-events: none; z-index: 12; }

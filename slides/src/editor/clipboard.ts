@@ -88,10 +88,16 @@ export function serializeElements(els: SlideElement[], doc: BentoDoc): string {
 export function serializeSlides(slides: Slide[], doc: BentoDoc): string {
   const els = slides.flatMap((s) => s.elements)
   const fonts = fontsFor(els, doc)
+  const assets = collectAssets(els, fonts, doc)
+  // FORK: a slide's background picture travels with it
+  for (const s of slides) {
+    const k = s.backgroundImage?.startsWith('asset:') ? s.backgroundImage.slice(6) : ''
+    if (k && doc.assets?.[k] != null) assets[k] = doc.assets[k]
+  }
   const payload: ClipPayload = {
     __bento: 'clip', kind: 'slides',
     slides: cloneForClipboard(slides),
-    assets: collectAssets(els, fonts, doc),
+    assets,
     fonts,
   }
   return JSON.stringify(payload)
@@ -229,6 +235,8 @@ export function insertSlides(payload: ClipPayload, doc: BentoDoc, at: number): S
     copy.id = uid('slide')
     if (copy.stateOf) delete copy.stateOf // a pasted state becomes a normal slide
     rewriteRefs(copy.elements, remap)
+    const bk = copy.backgroundImage?.startsWith('asset:') ? copy.backgroundImage.slice(6) : ''
+    if (bk && remap.has(bk)) copy.backgroundImage = 'asset:' + remap.get(bk) // FORK
     return copy
   })
   doc.slides.splice(at, 0, ...slides)

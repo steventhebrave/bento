@@ -2330,6 +2330,11 @@
           "maxLength": 200,
           "description": "CSS colour; no url()"
         },
+        "backgroundImage": {
+          "type": "string",
+          "maxLength": 33554432,
+          "description": "FORK: asset:<key> or a data:image/ URI — a picture behind every element, filling the slide (cropped, never stretched)"
+        },
         "comments": {
           "type": "array",
           "maxItems": 500,

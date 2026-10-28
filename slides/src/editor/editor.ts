@@ -8,7 +8,7 @@ import {
   FORMAT_VERSION,
   MEDIA_EMBED_BUDGET,
   applyChartPalette, applyLayout, builtinLayouts, defaultChart, defaultCode, defaultImage, defaultMedia, defaultShape, defaultTable, defaultText,
-  instantiateLayout, isLightBg, layoutElementIds, newDocId, parseDoc, readableInk, syncLinkedChart, uid,
+  instantiateLayout, isLightBg, layoutElementIds, newDocId, parseDoc, readableInk, syncLinkedChart, uid, deckBackgroundImage,
   paginates, inLinearFlow,
   type ChartElement, type ShapeKind, type Slide, type SlideElement, type TableElement } from '../model'
 import { THEME_CHOICES, setTheme, themeChoice } from '../../../kernel/src/theme.ts'
@@ -2076,6 +2076,9 @@ export class Editor {
 
   private insertSlideFromLayout(layout: Slide, at: number) {
     const slide = instantiateLayout(layout)
+    // FORK: when every slide shares a background picture it is the deck's, and a new slide joins it
+    const deckBg = deckBackgroundImage(this.store.doc)
+    if (deckBg && !slide.backgroundImage) slide.backgroundImage = deckBg
     this.store.commit(() => {
       this.store.doc.slides.splice(at, 0, slide)
     }, 'slides')

@@ -96,6 +96,7 @@ the string `</script>` can never appear and terminate the block.
 |---|---|---|---|
 | `id` | `string` | yes | Stable slide id. Link + morph targets reference it. |
 | `background` | `string` | yes | Slide background (CSS color). |
+| `backgroundImage?` | `string` | no | FORK. A picture behind every element, FILLING the slide: centred, zoomed until no slide shows — a picture of another shape is cropped, never stretched or letterboxed. `asset:<key>` (into `assets`) or a `data:image/…` URI; never a web URL. `background` paints beneath it. Put the same `asset:` reference on every slide for a deck-wide picture (stored once). |
 | `transition` | `TransitionKind` | yes | `none \| fade \| slide \| zoom \| morph`. `morph` tweens matched element ids from the previous slide. |
 | `elements` | `SlideElement[]` | yes | **Array order = paint order (z).** First element is at the back. |
 | `notes` | `string` | yes | Speaker notes (travel in the file; shown in speaker view). |

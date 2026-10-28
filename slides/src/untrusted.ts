@@ -253,6 +253,19 @@ const mediaRef: Check = tag((v) => {
 }, { type: 'string', maxLength: LIMITS.asset, description: 'data: URI, asset:<key> or URL' })
 
 /**
+ * FORK: a slide's background picture — `asset:<key>` or a `data:image/…` URI,
+ * and nothing that reaches the network (the line `background` holds too: a
+ * pasted slide must not make the page fetch). Its one consumer, render.ts
+ * renderSlide, sets it as an <img>'s src PROPERTY — never built into CSS or
+ * markup — like mediaRef's.
+ */
+const bgImageRef: Check = tag((v) => {
+  if (typeof v !== 'string' || v.length > LIMITS.asset) return DROP
+  if (v.startsWith('asset:')) return v.length > 6 && !CSS_BREAKOUT.test(v) ? v : DROP
+  return /^data:image\//i.test(v) ? v : DROP
+}, { type: 'string', maxLength: LIMITS.asset, description: 'FORK: asset:<key> or a data:image/ URI — a picture behind every element, filling the slide (cropped, never stretched)' })
+
+/**
  * Rebuild an object from a key table, dropping every key and value it fails.
  *
  * `required` names the keys the format does not make optional. Without it a
@@ -674,6 +687,7 @@ export const SLIDE_CHECKS: Record<string, Check> = {
   // the shorthand's length — wide enough for a multi-stop linear-gradient(),
   // still no url() reaching for the network from a pasted slide
   background: color(LIMITS.scalar), notes: str(LIMITS.html),
+  backgroundImage: bgImageRef,
   hidden: bool, unnumbered: bool,
   transition: oneOf('none', 'fade', 'slide', 'zoom', 'morph'),
   morphSeconds: num(0, 60), morphEase: EASE_CHECK,

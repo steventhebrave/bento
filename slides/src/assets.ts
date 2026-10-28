@@ -9,8 +9,8 @@ import type { BentoDoc, Slide } from './model'
  *
  * The forms are deliberately enumerated rather than found by a generic walk,
  * because the format uses TWO conventions and a walk that knows only one
- * would treat the other as unreferenced and delete it: `image.src` and
- * `media.src`/`media.poster` say `asset:<key>`; `svg.asset`,
+ * would treat the other as unreferenced and delete it: `image.src`,
+ * `media.src`/`media.poster` and (FORK) `slide.backgroundImage` say `asset:<key>`; `svg.asset`,
  * `code.grammarAssetId`, `code.themeAssetId` and `fonts[].asset` hold the
  * bare key. A new field that references an asset must be added HERE, or the
  * asset it names is dropped from the file on the next save. That is the cost
@@ -26,6 +26,7 @@ export function referencedAssetKeys(doc: BentoDoc): Set<string> {
   const prefixed = (v: string | undefined) => { if (v?.startsWith('asset:')) used.add(v.slice(6)) }
   const bare = (v: string | undefined) => { if (v) used.add(v) }
   const walk = (slide: Slide) => {
+    prefixed(slide.backgroundImage) // FORK: a slide's background picture
     for (const el of slide.elements) {
       switch (el.type) {
         case 'image': prefixed(el.src); break

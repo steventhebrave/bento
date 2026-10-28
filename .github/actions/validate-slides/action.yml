@@ -617,6 +617,16 @@ runs:
       shell: bento-step {0}
       run: node scripts/test-slides-anchor.ts
 
+    - name: Slide background picture rig
+      # FORK. The gate keeps asset: and data:image/ and drops web URLs and
+      # non-images; the save keeps (and later prunes) its asset; the
+      # deck-wide rule a new slide follows; a copied slide carries its picture
+      # and a paste follows a re-keyed asset. Bundled like the clipboard rig.
+      shell: bento-step {0}
+      run: |
+        slides/node_modules/.bin/esbuild scripts/test-slides-bgimage.ts --bundle --platform=node --format=esm --outfile="$RUNNER_TEMP/test-slides-bgimage.mjs"
+        node "$RUNNER_TEMP/test-slides-bgimage.mjs"
+
     - name: Deck code round trip rig
       # FORK. scripts/deck-code.mjs: extract → pack is lossless (a script
       # holding an end-of-script tag included, nothing outside #bento-doc

@@ -493,6 +493,12 @@ name or `[x1,y1,x2,y2]`. A slide with `"transition":"morph"` may set its own
 / `present.morphEase`); the morph out of a slide starts from where its list
 left every element.
 
+**A background picture** — a slide's `"backgroundImage"` (`"asset:<key>"`
+into `doc.assets`, or a `data:image/…` URI; never a web URL) paints behind
+its elements and always fills the slide, cropping a picture of another shape.
+For a deck-wide picture, store it once and put the same `"asset:<key>"` on
+every slide.
+
 **A script effect** — the list owns WHEN, a script owns WHAT. Put the module
 in `doc.scripts` and point an effect at it. It layers on the effects before
 it (`base`), so a move plus a script that drives only `y` makes an element

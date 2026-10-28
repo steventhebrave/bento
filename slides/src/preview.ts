@@ -131,6 +131,10 @@ function staticize(root: HTMLElement, doc: BentoDoc, keepImages: boolean) {
   }
 
   if (!keepImages) {
+    // FORK: the slide's background picture is dropped, not tinted — a wash
+    // over the whole page reads as a colour, not as "a picture was here"; the
+    // slide's own colour shows instead (buildSlidePreview sets it)
+    for (const bg of Array.from(root.querySelectorAll('img.bento-slide-bg'))) bg.remove()
     for (const img of Array.from(root.querySelectorAll<HTMLImageElement>('img'))) {
       // Keep the BOX — an empty rectangle where the photo was reads as
       // composition; removing it collapses the page into floating text.
@@ -401,6 +405,13 @@ function slideAssetsExceedBudget(slide: Slide, doc: BentoDoc, budget: number): b
     if (size > budget) return true
   }
   const seen = new Set<string>()
+  // FORK: the slide's background picture is an image like any other
+  const bgSrc = slide.backgroundImage ? resolveAsset(doc, slide.backgroundImage) : ''
+  if (bgSrc) {
+    seen.add(bgSrc)
+    size += bgSrc.length
+    if (size > budget) return true
+  }
   for (const el of slide.elements ?? []) {
     if (el.type === 'image' && el.src) {
       const src = resolveAsset(doc, el.src)

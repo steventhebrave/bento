@@ -12078,3 +12078,37 @@ its own unrotated frame; absent = the centre. Settled:
   beneath, and an element under 44px on screen shows no centre crosshair
   (there would be nowhere left to grab it). The panel's middle point removes
   an anchor.
+
+## 2026-10-28 — FORK: a slide's background picture always fills the slide, and "all slides" is one shared reference
+
+`Slide.backgroundImage` (optional, additive): `asset:<key>` or a
+`data:image/…` URI, painted beneath every element by `renderSlide` — so the
+canvas, thumbnails, the show, print and the file's preview all carry it.
+
+- **Always fill (CSS cover), with no setting.** The owner uses 16:9 pictures
+  and asked for no UI for the other case: a picture of another shape is zoomed
+  until no slide shows and cropped, centred — never stretched, never
+  letterboxed.
+- **An `<img>`, not a CSS background.** Its src is set as a DOM property, the
+  safety every other picture reference in the format relies on (untrusted.ts
+  mediaRef); building `url("…")` into CSS from document data would need its
+  own escaping. First child, `pointer-events: none`: every element paints
+  above it and it never takes a click.
+- **No web URLs.** The gate takes `asset:` and `data:image/` only — the line
+  the slide's `background` colour already holds: a pasted slide must not make
+  the page fetch.
+- **"Apply to all slides" copies the reference, not the bytes.** The editor
+  interns the picture once in `doc.assets` (through the image shrink path,
+  2560 px cap) and every slide points at that key. A new slide takes the
+  picture while EVERY slide shares one (`deckBackgroundImage`) and not when
+  only some do — a title-slide picture stays on the title slide. There is no
+  deck-level default field: a per-slide field plus that one verb covers it
+  with no inheritance rule for the format to carry.
+- assets.ts `referencedAssetKeys` walks it (or the save would prune the
+  picture); the clipboard carries and re-keys it; the file preview counts it
+  against `PREVIEW_BUDGET` and, in the image-less tier, DROPS it rather than
+  tinting a whole-page box.
+- Labels are English, through `t()`, like the rest of this fork's UI — none of
+  the fork's strings are in the catalogs yet.
+
+Rigs: scripts/test-slides-bgimage.ts (bundled), scripts/test-slides-bgimage-browser.mjs.

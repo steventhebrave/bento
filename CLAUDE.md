@@ -221,6 +221,14 @@ names provisional.
   trig treats a missing angle as 0; anything else doing trig on `el.rotation` must too (it once
   put the crosshair at NaN, i.e. the slide's corner, for every element of the pendulum example).
   Rigs: test-slides-anchor.ts, test-slides-anchor-browser.mjs.
+- **Background picture (FORK, `Slide.backgroundImage`)** — `asset:<key>` or `data:image/…`
+  (never a URL), drawn by renderSlide as the surface's FIRST child, an `<img class="bento-slide-bg">`
+  with `object-fit: cover` + `pointer-events: none`: always fills, crops, never stretches; no fit
+  setting by design. Panel: slide section "Background image" (Choose/Replace through shrink →
+  internAsset, Remove, "Apply to all slides"/"Remove from all slides" — one undo each). A new slide
+  takes it only while every slide shares one (`deckBackgroundImage`). Anything that enumerates
+  asset references must include it (assets.ts, clipboard.ts, preview.ts do). Rigs:
+  test-slides-bgimage.ts (bundled), test-slides-bgimage-browser.mjs.
 - **Signed writes / read-only tiers (v0.9.18)**: three file modes now, split
   from the old conflated `readonly`. (1) **Presentation package** = `doc.readonly`
   (unchanged: PLAYER file, present-only, collab stripped) — "Save as

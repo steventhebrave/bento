@@ -551,6 +551,15 @@ export interface AnimEffect {
 export interface Slide {
   id: string
   background: string
+  /**
+   * FORK: a picture behind every element, zoomed to FILL the slide (centred,
+   * like CSS `object-fit: cover`) — an image of another shape is cropped,
+   * never stretched or letterboxed, and there is deliberately no setting for
+   * it. `asset:<key>` (what the editor writes, so a picture on every slide is
+   * stored once) or a `data:image/…` URI; never a web URL. `background` still
+   * paints beneath it, and through any transparency.
+   */
+  backgroundImage?: string
   transition: TransitionKind
   elements: SlideElement[]
   notes: string
@@ -1135,6 +1144,17 @@ export function internAsset(doc: BentoDoc, src: string): string {
   const key = uid('a')
   assets[key] = src
   return `asset:${key}`
+}
+
+/**
+ * FORK: the background picture EVERY slide shares, or undefined when they do
+ * not all have the same one. A new slide takes it: once "Apply to all slides"
+ * has made it the deck's background, a slide added later is not the odd one
+ * out — while a deck with a picture on its title slide alone stays that way.
+ */
+export function deckBackgroundImage(doc: BentoDoc): string | undefined {
+  const first = doc.slides[0]?.backgroundImage
+  return first && doc.slides.every((s) => s.backgroundImage === first) ? first : undefined
 }
 
 /** Soft ceiling for embedding media as a data URI (bytes). Above this the

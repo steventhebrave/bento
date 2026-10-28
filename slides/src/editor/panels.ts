@@ -8,7 +8,7 @@ import type { Store } from '../store'
 import { MEDIA_EMBED_BUDGET, applyChartPalette, defaultChart, internAsset, morphKey, paginates, isWebUrl, tableStyleFor, uid, type ChartElement, type ImageElement, type LineEnding, type MediaElement, type ShapeElement, type Slide, type SlideElement, type TableElement, type TextElement, type TransitionKind, type CodeElement, type BentoDoc, type EmbedElement } from '../model'
 import { CROP_MAX_SCALE, normalizeCrop } from '../crop'
 import { LANGS } from '../../../kernel/src/tokenize.ts'
-import { cssColor, resolveAsset } from '../render'
+import { cssColor, resolveAsset, slideBackgroundSrc } from '../render'
 import { measureElement } from '../measure'
 import { PALETTE_SLOTS, paletteOf, refAt, setColor, slotIsSet } from '../palette'
 import { isMacOS } from '../screens'
@@ -53,6 +53,7 @@ const ROW_TIPS: Record<string, string> = {
   'Progress bar': 'Deck-wide. Show the thin progress bar along the bottom while presenting.',
   'Corner arrows': 'Deck-wide. Reveal’s own navigation arrows. Off by default — links and keys already navigate.',
   'Background': 'This slide’s background colour',
+  'Background image': 'A picture behind everything on this slide, zoomed to fill it: a picture of another shape is cropped, never stretched',
   'Transition': 'How this slide enters. Morph animates elements that share ids with the previous slide.',
   'Name': 'A friendly name for this slide — shown in link pickers and state badges',
   'Hover': 'What hovering does while presenting: reveal swaps content sets; focus-group dims the other groups',
@@ -211,6 +212,71 @@ export class PropsPanel {
     }
   }
 
+  /**
+   * FORK: the slide's background picture (model.ts Slide.backgroundImage).
+   * Choose/Replace go through the image shrink path into doc.assets, so every
+   * slide showing it points at ONE stored copy. It always fills the slide —
+   * cropped, never stretched — and deliberately has no fit setting. Below the
+   * row, one deck-wide verb: "Apply to all slides" points every slide at this
+   * one; with none here, "Remove from all slides". Each is one undo step.
+   */
+  private backgroundImageControl(slideId: string, slide: Slide) {
+    const wrap = document.createElement('div')
+    wrap.className = 'ed-bgimg'
+    const src = slideBackgroundSrc(this.store.doc, slide)
+    if (src) {
+      const thumb = document.createElement('img')
+      thumb.className = 'ed-bgimg-thumb'
+      thumb.alt = ''
+      thumb.src = src
+      wrap.appendChild(thumb)
+    }
+    const button = (label: string, run: () => void) => {
+      const b = document.createElement('button')
+      b.className = 'ed-btn'
+      b.textContent = label
+      b.addEventListener('click', run)
+      wrap.appendChild(b)
+      return b
+    }
+    button(src ? t('Replace…') : t('Choose image…'), () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.addEventListener('change', () => {
+        const file = input.files?.[0]
+        if (!file) return
+        void shrinkImageFile(file).then((r) => {
+          if (!/^data:image\//i.test(r.dataUrl)) { this.toast(t('That file is not a picture')); return }
+          const note = shrinkNote(r)
+          if (note) this.toast(note.photo ? t('Photo stored at {px} px — {before} → {after}', note.vars) : t('Image stored at {px} px — {before} → {after}', note.vars))
+          this.editSlideAttrs(slideId, (s) => { s.backgroundImage = internAsset(this.store.doc, r.dataUrl) }, true)
+        })
+      })
+      input.click()
+    }).dataset.bgimg = 'choose'
+    if (slide.backgroundImage) {
+      button(t('Remove'), () => this.editSlideAttrs(slideId, (s) => { delete s.backgroundImage }, true)).dataset.bgimg = 'remove'
+    }
+    this.row('Background image', wrap)
+
+    const mine = slide.backgroundImage
+    const slides = this.store.doc.slides
+    if (slides.length > 1 && slides.some((s) => s.backgroundImage !== mine)) {
+      const all = document.createElement('button')
+      all.className = 'ed-btn ed-btn-block'
+      all.dataset.bgimg = 'all'
+      all.textContent = mine ? t('Apply to all slides') : t('Remove from all slides')
+      all.addEventListener('click', () => this.edit(() => {
+        for (const s of this.store.doc.slides) {
+          if (mine) s.backgroundImage = mine
+          else delete s.backgroundImage
+        }
+      }, true))
+      this.host.appendChild(all)
+    }
+  }
+
   /** the deck's code (FORK): set by the editor after construction */
   code?: EditorCode
 
@@ -354,6 +420,7 @@ export class PropsPanel {
     this.row('Background', this.color(slide.background, (v, fin) =>
       this.editSlideAttrs(slideId, (slide: Slide) => { slide.background = v }, fin),
       { id: null, path: 'background', slide }))
+    this.backgroundImageControl(slideId, slide)
     this.row('Transition', this.select(
       ['none', 'fade', 'slide', 'zoom', 'morph'],
       slide.transition,

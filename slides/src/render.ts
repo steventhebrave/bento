@@ -1000,6 +1000,14 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
   return node
 }
 
+/** FORK: the src for a slide's background picture, or '' — none, unresolvable,
+ *  blocked offline, or not a picture at all. */
+export function slideBackgroundSrc(doc: BentoDoc, slide: Pick<Slide, 'backgroundImage'>): string {
+  if (!slide.backgroundImage) return ''
+  const url = assetSrc(doc, slide.backgroundImage)
+  return /^data:image\//i.test(url) ? url : ''
+}
+
 /** Render a full slide surface (background + elements) at model coordinates. */
 export function renderSlide(slide: Slide, doc: BentoDoc, opts: RenderOpts = {}): HTMLElement {
   const surface = document.createElement('div')
@@ -1008,6 +1016,20 @@ export function renderSlide(slide: Slide, doc: BentoDoc, opts: RenderOpts = {}):
   surface.style.width = `${doc.size.width}px`
   surface.style.height = `${doc.size.height}px`
   surface.style.background = slide.background
+  // FORK: the background picture, beneath every element. An <img> whose src
+  // is set as a property (never built into CSS — untrusted.ts bgImageRef),
+  // filling the slide: object-fit: cover crops a picture of another shape,
+  // centred. Clicks pass through to the slide, so it is never selectable.
+  const bg = slideBackgroundSrc(doc, slide)
+  if (bg) {
+    const img = document.createElement('img')
+    img.className = 'bento-slide-bg'
+    img.alt = ''
+    img.draggable = false
+    img.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;pointer-events:none;user-select:none'
+    img.src = bg
+    surface.appendChild(img)
+  }
   const fields = opts.fields ?? fieldContext(doc, slide)
   for (const el of slide.elements) surface.appendChild(renderElement(el, doc, { ...opts, fields }))
   return surface

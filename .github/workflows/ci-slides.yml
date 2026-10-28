@@ -214,6 +214,13 @@ jobs:
         # undo each; the panel's picker; a spin in the show turns about the
         # anchor (measured bounds at 45° and 90°), and ← restores it.
         run: node scripts/test-slides-anchor-browser.mjs
+      - name: Slide background pictures in Chromium
+        # FORK. Chosen in the slide panel, the picture fills the slide by
+        # pixels (a 4:1 picture: no stretch, no letterbox), sits under the
+        # elements and takes no clicks; Apply to all stores it once (one
+        # undo); a new slide joins a deck-wide picture; the save keeps it and
+        # the file preview carries it; the show paints it; Remove from all.
+        run: node scripts/test-slides-bgimage-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

@@ -44,9 +44,10 @@ console.log('every reference form keeps its asset')
     assets: {
       'img': PNG, 'poster': PNG, 'vid': PNG, 'svg': '<svg/>',
       'gram': '{}', 'thm': '{}', 'font': PNG, 'layout-img': PNG,
-      'embed-view': '<svg/>', 'embed-doc': '{"rows":[]}',
+      'embed-view': '<svg/>', 'embed-doc': '{"rows":[]}', 'bg': PNG,
     },
-    slides: [{ id: 's1', elements: [
+    // FORK: a slide's background picture is a reference like any other
+    slides: [{ id: 's1', backgroundImage: 'asset:bg', elements: [
       el({ id: 'i', type: 'image', src: 'asset:img' }),
       el({ id: 'm', type: 'media', kind: 'video', src: 'asset:vid', poster: 'asset:poster' }),
       el({ id: 'v', type: 'svg', asset: 'svg' }),
@@ -61,10 +62,10 @@ console.log('every reference form keeps its asset')
   const out = pruneUnusedAssets(d)
   ok(out === d, 'nothing to drop → the SAME object comes back (no copy, no allocation)')
   const used = referencedAssetKeys(d)
-  for (const k of ['img', 'poster', 'vid', 'svg', 'gram', 'thm', 'font', 'layout-img', 'embed-view', 'embed-doc']) {
+  for (const k of ['img', 'poster', 'vid', 'svg', 'gram', 'thm', 'font', 'layout-img', 'embed-view', 'embed-doc', 'bg']) {
     ok(used.has(k), `referenced: ${k}`)
   }
-  ok(used.size === 10, `exactly the ten referenced keys, no strays (got ${used.size})`)
+  ok(used.size === 11, `exactly the eleven referenced keys, no strays (got ${used.size})`)
   // an embed whose view and doc are INLINE names no asset at all
   const inline = doc({ assets: { orphan: PNG }, slides: [{ id: 's', elements: [
     el({ id: 'e', type: 'embed', app: 'web', view: '<svg/>', doc: { rows: [] } }) ] } as never] })

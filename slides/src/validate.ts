@@ -279,6 +279,16 @@ export function validateDoc(doc: BentoDoc, opts: ValidateOpts = {}): ValidateRes
           add({ ...at, code: 'anim-unknown-type', severity: 'warning', path: `${path}.type`,
             message: `Effect type "${String(fx.type)}" is not one this app knows — it keeps its place in the sequence and does nothing.` })
         }
+        // FORK: a script effect names its motion in doc.scripts
+        if (fx.type === 'script') {
+          if (typeof fx.script !== 'string' || !fx.script) {
+            add({ ...at, code: 'anim-script-unset', severity: 'warning', path: `${path}.script`,
+              message: 'This script effect names no script — it plays as nothing. Set "script" to a key of doc.scripts.' })
+          } else if (!doc.scripts?.[fx.script]) {
+            add({ ...at, code: 'anim-script-missing', severity: 'warning', path: `${path}.script`,
+              message: `This effect runs script "${fx.script}", which is not in doc.scripts — it plays as nothing.` })
+          }
+        }
         const target = byId.get(fx.el)
         if (!target) {
           add({ ...at, code: 'anim-dangling-target', severity: 'warning', path: `${path}.el`,
@@ -397,6 +407,20 @@ export function validateDoc(doc: BentoDoc, opts: ValidateOpts = {}): ValidateRes
         if (typeof ref === 'string' && ref.startsWith('asset:') && !assets[ref.slice(6)]) {
           add({ ...at, code: 'missing-asset', severity: 'error', path: key,
             message: `${key} references asset "${ref.slice(6)}", which is not in doc.assets — nothing renders.` })
+        }
+      }
+
+      // code canvas (FORK) ------------------------------------
+      // The poster is what every surface that runs no code shows: thumbnails,
+      // print/PDF, the file preview, a viewer with deck code off.
+      if (el.type === 'canvas') {
+        if (!el.script || !doc.scripts?.[el.script]) {
+          add({ ...at, code: 'canvas-script-missing', severity: 'warning', path: 'script',
+            message: `This code canvas draws with script "${el.script ?? ''}", which is not in doc.scripts — it shows only its still picture.` })
+        }
+        if (!el.poster) {
+          add({ ...at, code: 'canvas-no-poster', severity: 'info', path: 'poster',
+            message: 'This code canvas has no still picture yet. Thumbnails, print and viewers with deck code off see a placeholder; the editor captures one when the deck is opened with code on.' })
         }
       }
 

@@ -600,6 +600,23 @@ runs:
       shell: bento-step {0}
       run: node scripts/test-slides-anim-format.ts
 
+    - name: Code layer format and bake rig
+      # FORK. doc.scripts and the canvas element pass the load gate as data
+      # (bad names and oversized sources dropped one by one); a canvas poster
+      # survives save-time pruning; the bake plan's samples carry the frame of
+      # every earlier effect and its key changes exactly when an input does;
+      # baked tracks are filed per slide; validate() reports missing scripts.
+      shell: bento-step {0}
+      run: node scripts/test-slides-code-format.ts
+
+    - name: Deck code round trip rig
+      # FORK. scripts/deck-code.mjs: extract → pack is lossless (a script
+      # holding an end-of-script tag included, nothing outside #bento-doc
+      # touched); pack refuses unparsable code and writes nothing; `new`
+      # scaffolds and registers; a password-protected deck is refused.
+      shell: bento-step {0}
+      run: node scripts/test-deck-code.ts
+
     - name: Legacy reveals read as an animation list rig
       # fx.enter / fx.step converted to slide.anim reproduce the legacy
       # runtime's delays, offsets, durations and eases number for number;

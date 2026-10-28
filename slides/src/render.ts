@@ -925,6 +925,34 @@ export function renderElement(el: SlideElement, doc: BentoDoc, opts: RenderOpts 
       if (!opts.svgAsImage && opts.liveMedia && liveFrameAllowed(el)) node.appendChild(liveFrame(el, opts))
       break
     }
+    case 'canvas': {
+      // A code canvas (FORK). The renderer only ever paints the STILL: the
+      // captured poster, or a labelled box before there is one. The live
+      // drawing is a sandboxed frame the show and the editor lay over this
+      // (src/code/) — never built here, so thumbnails, print, the saved
+      // preview and a viewer with code off all get the still.
+      node.style.overflow = 'hidden'
+      node.style.background = cssColor(el.fill, 'transparent')
+      node.dataset.codeCanvas = el.script || ''
+      const posterSrc = el.poster ? assetSrc(doc, el.poster) : ''
+      if (posterSrc) {
+        const img = document.createElement('img')
+        img.src = posterSrc
+        img.draggable = false
+        img.className = 'bento-canvas-poster'
+        img.style.cssText = 'width:100%;height:100%;object-fit:fill;display:block'
+        node.appendChild(img)
+      } else {
+        const ph = document.createElement('div')
+        ph.className = 'bento-canvas-poster'
+        ph.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;'
+          + 'background:repeating-linear-gradient(45deg,rgb(127 127 127/.10) 0 10px,rgb(127 127 127/.04) 10px 20px);'
+          + 'color:rgb(127 127 127/.9);font:600 14px system-ui,sans-serif'
+        ph.textContent = `ƒ ${el.script || 'canvas'}`
+        node.appendChild(ph)
+      }
+      break
+    }
     case 'code': {
       node.style.display = 'flex'
       node.style.flexDirection = 'column'

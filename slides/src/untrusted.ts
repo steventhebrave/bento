@@ -152,6 +152,9 @@ export const LIMITS = {
   keyframes: 1_000,
   /** declared parameters on one script effect */
   params: 64,
+  /** the deck's code (FORK): scripts, and one script's source */
+  scripts: 64,
+  scriptSrc: 256 * 1024,
   /** a chart option is free-form JSON — bounded, not typed */
   optionNodes: 20_000,
   optionDepth: 12,
@@ -570,6 +573,11 @@ export const ELEMENT_CHECKS: Record<string, Check> = {
   rows: tableRows, header: bool, style: tableStyle,
   // embed
   app: cssValue(), view: str(LIMITS.markup), doc: embedDoc, url: webUrl, live: bool,
+  // code canvas (FORK) — a script NAME (a key into doc.scripts, never code),
+  // its parameter values, and when its poster was captured; `poster` and
+  // `fill` are the media and shape checks above
+  script: cssValue(), params: scriptParams,
+  posterAt: shape(MODEL_KEYS.canvasPosterAt, { click: num(0, 1e4), t: num(0, 3600) }, ['click', 't']),
   // code — the raw snippet is text (code.ts tokenizes it, never innerHTML);
   // grammar/theme names and asset ids land in lookups, not markup. Not in
   // REQUIRED_ELEMENT_KEYS: renderCodeInto returns false without content and
@@ -727,6 +735,31 @@ export function sanitizeAssets(value: unknown): Record<string, string> {
     if (typeof v !== 'string' || v.length > LIMITS.asset) continue
     if (++n > LIMITS.assets) break
     out[key] = v
+  }
+  return out
+}
+
+/** A script's name: also its file name in a deck-code folder, so path-safe. */
+export const SCRIPT_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
+
+/**
+ * Rebuild a foreign `doc.scripts` (FORK). The sources are DATA here and stay
+ * data: they are never run in the page — only in the code sandbox (src/code/),
+ * with no network, no storage and no reach into this document — so the gate
+ * checks shape and size, not content. Bad names and oversized sources are
+ * dropped. A clipboard paste never calls this: clips carry no scripts.
+ */
+export function sanitizeScripts(value: unknown): Record<string, { src: string }> | undefined {
+  if (!isPlainObject(value)) { note(null, 'not an object — dropped'); return undefined }
+  const out: Record<string, { src: string }> = {}
+  let n = 0
+  for (const key of Object.keys(value)) {
+    if (key === PROTO || !SCRIPT_NAME.test(key)) { note(key, 'not a script name (letters, digits, - and _)'); continue }
+    const entry = value[key]
+    const src = isPlainObject(entry) ? entry.src : undefined
+    if (typeof src !== 'string' || src.length > LIMITS.scriptSrc) { note(key, 'needs a src string under 256 KB'); continue }
+    if (++n > LIMITS.scripts) break
+    out[key] = { src }
   }
   return out
 }

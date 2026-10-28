@@ -1043,6 +1043,9 @@ a.ed-btn { text-decoration: none; }  /* the update block's "What's new" link is 
    slide transitions cut instantly and svg keyframe animations don't play. */
 .bento-present-overlay.reduce-motion .reveal .slides section { transition: none !important; }
 .bento-present-overlay.reduce-motion .bento-el-svg * { animation: none !important; }
+/* FORK code canvases: the sandbox frame draws over the poster, which hides
+   once the first frame has landed (never before — no blank flash) */
+.bento-canvas-live > .bento-canvas-poster { visibility: hidden; }
 /* dual-screen: one-click permission grant + transient toast */
 .bento-present-grant {
   position: fixed;
@@ -3054,3 +3057,39 @@ input.ed-toggle { width: 16px; height: 16px; accent-color: #5E7699; cursor: poin
 :root[data-theme="dark"] .ed-anim-jsonmsg.error { color: #f08a83; }
 .ed-anim-customnote { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .ed-anim-reset { padding: 3px 8px; font-size: 12px; background: var(--surface); border-color: var(--line); }
+
+/* ————— FORK: the deck's code (code layer) ————— */
+/* the "this deck runs code" chip: exists only while the deck has scripts */
+.ed-codechip { font: 600 12px/1 inherit; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--chrome-2); color: var(--ink); white-space: nowrap; }
+.ed-codechip[hidden] { display: none; }
+.ed-codechip.off { color: var(--muted); border-style: dashed; background: none; }
+.ed-codepop { position: fixed; z-index: 60; width: 290px; padding: 12px; border-radius: 12px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 10px 30px rgb(15 23 36 / 0.22); font-size: 12.5px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.ed-codepop p { margin: 0; line-height: 1.45; color: var(--muted); }
+.ed-codepop-switch { display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; }
+/* the Deck code dialog */
+dialog.ed-codedialog { border: 0; border-radius: 14px; box-shadow: 0 18px 50px rgb(15 23 36 / 0.3); padding: 18px; width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); font-size: 13px; font-family: inherit; background: var(--surface); color: var(--ink); display: flex; flex-direction: column; }
+dialog.ed-codedialog:not([open]) { display: none; }
+dialog.ed-codedialog::backdrop { background: rgb(15 23 36 / 0.38); }
+dialog.ed-codedialog h2 { font-size: 15px; margin: 0 0 4px; }
+.ed-code-lede { margin: 0 0 10px; color: var(--muted); line-height: 1.45; }
+.ed-code-body { display: flex; gap: 12px; min-height: 0; flex: 1; }
+.ed-code-list { display: flex; flex-direction: column; gap: 4px; width: 170px; flex: none; overflow-y: auto; }
+.ed-code-item, .ed-code-new { text-align: left; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--ink); font: inherit; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-code-item small { color: var(--muted); }
+.ed-code-item:hover, .ed-code-new:hover { background: var(--chrome); }
+.ed-code-item.on { background: var(--chrome-2); border-color: var(--line); font-weight: 600; }
+.ed-code-new { color: var(--accent-ink); }
+.ed-code-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ed-code-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.ed-code-name input { flex: 1; }
+textarea.ed-code-src { flex: 1; min-height: 360px; width: 100%; box-sizing: border-box; font: 12.5px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; tab-size: 2; white-space: pre; overflow: auto; resize: vertical; }
+.ed-code-msg { min-height: 18px; font-size: 12px; color: var(--muted); white-space: pre-wrap; }
+.ed-code-msg.error, .ed-code-error { color: #c4473f; }
+:root[data-theme="dark"] .ed-code-msg.error, :root[data-theme="dark"] .ed-code-error { color: #f08a83; }
+dialog.ed-codedialog .ed-dialog-actions { align-items: center; }
+dialog.ed-codedialog .ed-code-gap { flex: 1; }
+/* a value a script effect also drives during the show */
+.ed-mini.ed-driven span { color: var(--accent-ink); }
+.ed-driven-badge { font-style: italic; font-weight: 700; margin-left: 3px; }
+.ed-canvas-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.ed-canvas-btns .ed-btn { padding: 4px 10px; font-size: 12px; border: 1px solid var(--line); background: var(--surface); }

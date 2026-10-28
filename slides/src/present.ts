@@ -20,7 +20,9 @@ import { lsGet, lsSet } from '../../kernel/src/storage.ts'
 import type { ShowEvent, ShowVerbs } from '../../kernel/src/sync/session.ts'
 import { FollowState, laserDue } from './follow'
 import { StepState, stepOf, shownAt } from './steps'
-import { morphFrames, planAnim, usesAnim } from './animseq'
+import { groupDuration, morphFrames, planAnim, usesAnim } from './animseq'
+import { CodeHost, codeEnabled, deckHasCode, onCodeSwitch, setCodeEnabled } from './code/host'
+import { ShowCode } from './code/showcode'
 import { AnimPlayer, frameTransform, paintAt, restTargets } from './animplayer'
 import type { Frame } from './effects/index.ts'
 import type { Ease } from './model'
@@ -89,6 +91,8 @@ export function startPresentation(
       buildSection: (s: BentoDoc['slides'][number], i: number) => HTMLElement
     }) => void
     broadcast?: PresentBroadcast
+    /** the editor's code host (its bakes are reused); absent = the show starts its own */
+    code?: CodeHost
   } = {},
 ): PresentSession {
   MORPH_DURATION = Math.min(6, Math.max(0.1, doc.present?.morphSeconds ?? MORPH_DURATION_DEFAULT))
@@ -210,6 +214,11 @@ export function startPresentation(
   }
   // ——— the animation sequence (slide.anim): on a slide that carries one, the
   // player owns → and ← until its clicks run out. Decisions in animseq.ts. ———
+  // ——— the deck's code (FORK, the code layer): script effects are baked in a
+  // sandbox and read back synchronously; code canvases draw in sandbox frames
+  // on the current slide. Nothing here runs a deck's code (src/code/). ———
+  const ownCode = !opts.code
+  const code = opts.code ?? new CodeHost(() => doc)
   const player = new AnimPlayer({
     reduceMotion: () => reduceMotion,
     onEntrances: (ids) => {
@@ -217,6 +226,24 @@ export function startPresentation(
       const section = currentSection()
       if (section && doc.slides[cur]) runAnimDecor(doc.slides[cur], section, new Set(ids))
     },
+    scriptFor: (s) => code.scriptFor(s),
+  })
+  const showCode = new ShowCode(code, {
+    reduceMotion: () => reduceMotion,
+    scale: () => (deckReady ? deck.getScale() : 1),
+    groupEnd: (s, c) => (usesAnim(s) ? groupDuration(planAnim(s.anim), c) : 0),
+  })
+  // a bake that lands (or a script's metadata) repaints the sequence where it stands
+  const offCode = code.on(() => { if (player.bound) player.paint() })
+  const startCode = () => { void code.preload().then(() => code.bakeDeck(doc)) }
+  startCode()
+  const offCodeSwitch = onCodeSwitch((on) => {
+    if (on) startCode()
+    else code.clear() // off means nothing runs: not even the idle bake frame
+    if (player.bound) player.paint()
+    showCode.refresh()
+    updateSpeakerControls()
+    flashPresentMsg(on ? t('Deck code: on') : t('Deck code: off — showing still pictures'))
   })
   const animated = (i: number) => usesAnim(doc.slides[i])
   // A sequenced slide enters `steps` with no elements, so steps.next()/prev()
@@ -224,6 +251,7 @@ export function startPresentation(
   const seqStep = (dir: 1 | -1): boolean => {
     const cur = deck.getIndices().h
     if (!animated(cur) || !player.bound || !(dir > 0 ? player.next() : player.prev())) return false
+    showCode.at(player.click, dir < 0)
     sendNav(cur)
     updateSpeakerControls()
     return true
@@ -883,6 +911,13 @@ export function startPresentation(
     nav('laser')?.classList.toggle('active', laserEnabled)
     nav('laser')?.setAttribute('aria-pressed', String(laserEnabled))
     nav('reduce')?.classList.toggle('active', reduceMotion)
+    const codeBtn = nav('code')
+    if (codeBtn) {
+      const on = codeEnabled()
+      codeBtn.classList.toggle('active', on)
+      codeBtn.setAttribute('aria-pressed', String(on))
+      codeBtn.title = on ? t('This deck runs code (sandboxed: no network, no storage). Click to turn it off.') : t('Deck code is off: still pictures instead. Click to turn it on.')
+    }
     const liveBtn = nav('live')
     if (liveBtn) {
       liveBtn.classList.toggle('active', showOn)
@@ -990,6 +1025,7 @@ export function startPresentation(
           if (!on) { runAmbientFx(slide, section); restartSvgAnimations(section) }
         } else if (!on) { runEnterFx(slide, section); runAmbientFx(slide, section); restartSvgAnimations(section) }
       }
+      showCode.refresh() // canvases: a poster under reduced motion, live again without
     }
     updateSpeakerControls()
   }
@@ -1061,6 +1097,7 @@ export function startPresentation(
           navBtn('laser', ICONS.laser, t('Laser pointer (L)'), true) +
           navBtn('grid', '▦', t('All slides (G)')) +
           navBtn('reduce', '⏸', t('Reduce motion (M)')) +
+          (deckHasCode(doc) ? navBtn('code', 'ƒ', t('This deck runs code'), true) : '') +
           navBtn('live', ICONS.broadcast, t('Go live — audience copies follow your slides')) +
           navBtn('lock', '🔒', t('Lock keeps the audience on your slide. It does not hide the rest of the deck, which they already have.')) +
         `</div>` +
@@ -1142,6 +1179,7 @@ export function startPresentation(
       else if (k === 'laser') toggleLaser()
       else if (k === 'grid') toggleGrid()
       else if (k === 'reduce') toggleReduceMotion()
+      else if (k === 'code') setCodeEnabled(!codeEnabled())
       else if (k === 'live') void toggleShow()
       else if (k === 'lock') toggleLock()
     }
@@ -1249,6 +1287,10 @@ export function startPresentation(
     }
     overlay.remove()
     player.stop()
+    showCode.leave()
+    offCode()
+    offCodeSwitch()
+    if (ownCode) code.clear()
     window.removeEventListener('resize', onResize)
     document.removeEventListener('keydown', onKeydown, true)
     document.removeEventListener('fullscreenchange', onFsChange)
@@ -1360,6 +1402,7 @@ export function startPresentation(
     // there, and the outgoing section keeps showing it while it transitions out.
     const leftAt = from && animated(fromIdx) && player.bound ? player.position() : null
     player.stop()
+    showCode.leave()
     if (from) {
       // Kill the outgoing slide's tweens, then restore model frames —
       // a tween killed during its delay would otherwise leave the element
@@ -1378,7 +1421,7 @@ export function startPresentation(
       if (fromSlide?.hover?.type === 'reveal') {
         applyRevealSet(from, null, fromSlide.hover.default)
       }
-      if (leftAt && fromSlide) paintAt(from, fromSlide, leftAt.click, leftAt.t)
+      if (leftAt && fromSlide) paintAt(from, fromSlide, leftAt.click, leftAt.t, { script: code.scriptFor(fromSlide) })
     }
     // The incoming section may still carry span state from a PREVIOUS visit
     // (Reveal keeps sections mounted) — start clean before any fx runs.
@@ -1416,13 +1459,14 @@ export function startPresentation(
         setMorphTiming(forward ? toSlide : doc.slides[fromIdx])
         // from: where the outgoing sequence stood (a legacy slide: its model);
         // to: the incoming slide at the click it arrives on
-        const fromFrames = morphFrames(doc.slides[fromIdx], leftAt?.click ?? 0, leftAt?.t ?? Infinity)
-        const toFrames = morphFrames(toSlide, arriveClick, arriveAtEnd ? Infinity : 0)
+        const fromFrames = morphFrames(doc.slides[fromIdx], leftAt?.click ?? 0, leftAt?.t ?? Infinity, { script: code.scriptFor(doc.slides[fromIdx]) })
+        const toFrames = morphFrames(toSlide, arriveClick, arriveAtEnd ? Infinity : 0, { script: code.scriptFor(toSlide) })
         morphed = runMorph(doc, from!, to, fromIdx, toIdx, fromFrames, toFrames, toSeq)
         runMorphArrivalCountUps(doc.slides[fromIdx], toSlide, to, toSeq ? toFrames : undefined)
       }
     }
     else if (!reduceMotion && !toSeq) runEnterFx(toSlide, to, undefined, false, steps.step)
+    showCode.enter(to, toSlide, arriveClick, arriveAtEnd)
     if (toSeq) {
       player.enter(to, toSlide, arriveClick, arriveAtEnd, morphed?.animated)
       if (!arriveAtEnd) {
@@ -1515,8 +1559,8 @@ export function startPresentation(
     if (index !== deck.getIndices().h) { pendingStep = step; return }
     if (animated(index)) {
       if (!player.bound || step === player.click) return
-      if (step === player.click + 1) player.next() // play it, as the presenter did
-      else player.seek(step)
+      if (step === player.click + 1) { player.next(); showCode.at(player.click, false) } // play it, as the presenter did
+      else { player.seek(step); showCode.at(player.click, true) }
       return
     }
     const was = steps.step
@@ -1633,6 +1677,7 @@ export function startPresentation(
         runAmbientFx(doc.slides[startIndex], first)
         restartSvgAnimations(first)
       }
+      showCode.enter(first, firstSlide, 0, false)
       wireHoverFocus(doc.slides[startIndex], first)
       // the opening slide never gets a slidechanged, so capture its symbols
       // here or the very first morph would have no from-side to travel from

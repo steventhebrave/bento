@@ -71,6 +71,11 @@ const AUDITED: Record<string, Bg> = {
   '.ed-anim-trig-click': 'surface',            // the "on click" dot
   '.ed-anim-kind-emphasis::before': 'surface', // the spin glyph
   '.ed-anim-custom': 'surface',                // the "custom" tag
+  // FORK, the code layer: the Deck code dialog's "＋ Effect/Canvas script"
+  // rows, and a panel value a script drives (hover/panel --chrome computes
+  // 6.45:1 light, 9.12:1 dark — above 4.5 on either)
+  '.ed-code-new': 'surface',
+  '.ed-mini.ed-driven span': 'surface',
   '.ed-comment-hl.slide': 'over-slide',        // "SLIDE" label on a whole-slide comment
   '.ed-comment-hl.pin': 'over-slide',          // coordinates beside a point comment
 }

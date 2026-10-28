@@ -41,6 +41,8 @@ export const SLIDES_FIELDS = {
   slides: 'content',
   layouts: 'content',
   fonts: 'content',
+  // FORK: the deck's code — content like any other part of the deck
+  scripts: 'content',
   // the per-key maps
   assets: 'content',
   blobs: 'content',

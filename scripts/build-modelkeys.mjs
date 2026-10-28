@@ -98,6 +98,7 @@ const ELEMENTS = {
   media: 'MediaElement',
   embed: 'EmbedElement', // the embed element (model.ts EmbedElement)
   code: 'CodeElement', // added with the schema: it was missing, so the gate dropped pasted code elements
+  canvas: 'CanvasElement', // FORK: a code canvas (Tier 3 of the code layer)
 }
 
 const tables = {
@@ -120,6 +121,7 @@ const tables = {
   // the animation sequence (slide.anim) and its keyframes
   animEffect: uniq(keysOf('AnimEffect')),
   animKey: uniq(keysOf('AnimKeyframe')),
+  canvasPosterAt: uniq(nestedKeys('CanvasElement', ['posterAt'])),
   // the document's own nested objects — the schema (schema.ts) describes the
   // top level from these, so a field added to the theme reaches the schema
   // the same way a field added to an element does

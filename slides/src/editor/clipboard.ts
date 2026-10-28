@@ -39,6 +39,8 @@ function assetKeysOf(els: SlideElement[]): Set<string> {
     // embed: the view may live in doc.assets, and a paste that
     // kept the reference and lost the picture would paint a hole
     if (el.type === 'embed' && typeof el.view === 'string' && el.view.startsWith('asset:')) keys.add(el.view.slice(6))
+    // a code canvas's still travels; its CODE never does (clips carry no doc.scripts)
+    if (el.type === 'canvas' && typeof el.poster === 'string' && el.poster.startsWith('asset:')) keys.add(el.poster.slice(6))
   }
   return keys
 }
@@ -177,6 +179,9 @@ function rewriteRefs(els: SlideElement[], remap: Map<string, string>) {
     if (typeof a === 'string' && remap.has(a)) (el as { asset?: string }).asset = remap.get(a)
     if (el.type === 'embed' && typeof el.view === 'string' && el.view.startsWith('asset:')) {
       const k = el.view.slice(6); if (remap.has(k)) el.view = 'asset:' + remap.get(k)
+    }
+    if (el.type === 'canvas' && typeof el.poster === 'string' && el.poster.startsWith('asset:')) {
+      const k = el.poster.slice(6); if (remap.has(k)) el.poster = 'asset:' + remap.get(k)
     }
   }
 }

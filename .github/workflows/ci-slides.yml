@@ -182,6 +182,23 @@ jobs:
         # custom rows, unknown keys kept on existing effects and dropped on new
         # ones (and reported), Reset to UI-editable.
         run: node scripts/test-slides-anim-easing-browser.mjs
+      - name: The code sandbox's boundary in Chromium
+        # FORK. Deck scripts attack from inside: fetch, XHR, WebSocket,
+        # EventSource, import(), importScripts, a nested worker and a beacon
+        # all aim at a counting local server (control: the page reaches it) —
+        # zero requests; no document/window/parent/storage, IndexedDB refused,
+        # clock frozen (screenshot pixels); a runaway loop leaves the page
+        # responsive and other canvases drawing; Math.random is seeded; with
+        # code switched off not one sandbox frame exists.
+        run: node scripts/test-slides-code-sandbox-browser.mjs
+      - name: Script effects and code canvases in a show in Chromium
+        # FORK. Measured: a script effect layers on a move (x from the move, y
+        # from the script), ← is exact; a canvas draws on the show clock and
+        # holds at its declared duration; the speaker window's switch shows
+        # posters and drops scripted motion; reduced motion shows posters; the
+        # morph out starts from the script's end state; the shell's plaintext
+        # <style> stays the splash's (a tag literal once doubled the file).
+        run: node scripts/test-slides-code-present-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

@@ -119,6 +119,8 @@ export interface SeqOpts {
   plan?: AnimPlan
   /** script effects' motion; absent = scripts play as their base */
   script?: ScriptSampler
+  /** fold only effects BEFORE this list index — a script effect's `base` */
+  beforeIndex?: number
 }
 
 type ElLike = Slide['elements'][number]
@@ -146,6 +148,7 @@ export function stateAt(slide: Pick<Slide, 'anim' | 'elements'>, click: number, 
   const c = clampClick(plan, click)
   for (const pe of plan.effects) {
     if (pe.group > c) break // groups only grow along the list
+    if (opts.beforeIndex !== undefined && pe.index >= opts.beforeIndex) break
     if (!pe.def) continue
     const el = byId.get(pe.fx.el)
     if (!el) continue
@@ -158,6 +161,7 @@ export function stateAt(slide: Pick<Slide, 'anim' | 'elements'>, click: number, 
       el,
       t: elapsed,
       duration: pe.duration,
+      index: pe.index,
       script: opts.script,
     }))
   }

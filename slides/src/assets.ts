@@ -30,6 +30,8 @@ export function referencedAssetKeys(doc: BentoDoc): Set<string> {
       switch (el.type) {
         case 'image': prefixed(el.src); break
         case 'media': prefixed(el.src); prefixed(el.poster); break
+        // FORK: a code canvas's still (its code lives in doc.scripts, not here)
+        case 'canvas': prefixed(el.poster); break
         case 'svg': bare(el.asset); break
         case 'code': bare(el.grammarAssetId); bare(el.themeAssetId); break
         // Both may be inline (svg markup / a JSON object) or an asset ref;

@@ -75,6 +75,7 @@ export function labelFor(el: SlideElement, tr: (s: string) => string = (s) => s)
     case 'code': return tr('Code')
     case 'media': return tr(el.kind === 'audio' ? 'Audio' : 'Video')
     case 'embed': return tr('Embed')
+    case 'canvas': return tr('Code canvas')
     default: return tr('Element')
   }
 }

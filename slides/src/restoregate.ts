@@ -25,7 +25,7 @@
 
 import { MODEL_KEYS } from './modelkeys.generated'
 import { FORMAT, parseDoc, type BentoDoc, type Slide } from './model'
-import { LIMITS, SLIDE_CHECKS, sanitizeAssets, sanitizeFonts, sanitizeSlide, withDropReport, withPathSegment, type Dropped } from './untrusted'
+import { LIMITS, SLIDE_CHECKS, sanitizeAssets, sanitizeFonts, sanitizeScripts, sanitizeSlide, withDropReport, withPathSegment, type Dropped } from './untrusted'
 import { FROM_LIVE } from '../../kernel/src/docfields.ts'
 
 const DOC_KEYS = new Set<string>(MODEL_KEYS.doc)
@@ -141,6 +141,8 @@ export function sanitizeDoc(base: Record<string, unknown>, live?: BentoDoc): { d
         case 'layouts': out.layouts = gated(v, 'layouts'); break
         case 'assets': out.assets = sanitizeAssets(v); break
         case 'fonts': out.fonts = sanitizeFonts(v); break
+        // the deck's code: inert data here, run only in the sandbox (src/code/)
+        case 'scripts': { const sc = withPathSegment('scripts', () => sanitizeScripts(v)); if (sc) out.scripts = sc; break }
         case 'blobs': { const b = blobs(v, extra); if (b) out.blobs = b; break }
         case 'title': if (typeof v === 'string' && v.length <= LIMITS.scalar * 5) out.title = v; break
         case 'version': case 'modified': if (typeof v === 'number' || typeof v === 'string') out[key] = v; break

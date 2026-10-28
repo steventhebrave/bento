@@ -61,10 +61,50 @@ export function paintFrame(node: HTMLElement, el: SlideElement, F: Frame) {
   node.style.opacity = String(Math.max(0, F.opacity))
   // a hidden element is not clickable (a link on it must not fire) and costs nothing to paint
   node.style.visibility = F.opacity <= 0 ? 'hidden' : ''
+  paintColors(node, el, F)
+}
+
+/** A shape's painted part: lines paint with stroke, everything else with fill. */
+const paintTarget = (node: HTMLElement): { target: SVGElement; attr: 'fill' | 'stroke' } | null => {
+  const target = node.querySelector<SVGElement>('rect,ellipse,polygon,line,path')
+  return target ? { target, attr: target.tagName === 'line' ? 'stroke' : 'fill' } : null
+}
+
+/**
+ * Colours only a script effect changes (the UI-authored effects never do): a
+ * shape's fill, a text's colour. Written only while the frame differs from the
+ * model, and put back exactly — the renderer's own paint (a gradient, a theme
+ * colour) is remembered on the node and restored, never re-derived.
+ */
+function paintColors(node: HTMLElement, el: SlideElement, F: Frame) {
+  if (el.type === 'shape') {
+    const want = typeof F.fill === 'string' && F.fill !== el.fill && /^(#[0-9a-fA-F]{3,8}|rgba?\([\d\s.,%/]+\)|hsla?\([\d\s.,%/deg]+\)|[a-z]{3,20})$/.test(F.fill) ? F.fill : null
+    const pt = (want || node.dataset.animFill !== undefined) ? paintTarget(node) : null
+    if (!pt) return
+    if (want) {
+      if (node.dataset.animFill === undefined) node.dataset.animFill = pt.target.getAttribute(pt.attr) ?? ''
+      pt.target.setAttribute(pt.attr, want)
+    } else {
+      const was = node.dataset.animFill!
+      if (was) pt.target.setAttribute(pt.attr, was)
+      else pt.target.removeAttribute(pt.attr)
+      delete node.dataset.animFill
+    }
+  } else if (el.type === 'text') {
+    const want = typeof F.color === 'string' && F.color !== el.color ? F.color : null
+    if (want) {
+      if (node.dataset.animColor === undefined) node.dataset.animColor = node.style.color
+      node.style.color = want
+    } else if (node.dataset.animColor !== undefined) {
+      node.style.color = node.dataset.animColor
+      delete node.dataset.animColor
+    }
+  }
 }
 
 /** Put a node back exactly as the renderer left it. */
 export function restNode(node: HTMLElement, el: SlideElement) {
+  paintColors(node, el, { x: 0, y: 0, w: 0, h: 0, rotation: 0, opacity: 1, scale: 1 })
   applyElementFrame(node, el)
   node.style.transformOrigin = ''
   node.style.visibility = ''
@@ -104,8 +144,8 @@ export interface PlayerHost {
   reduceMotion(): boolean
   /** entrance effects that just started while playing forward (count-up / typewriter hooks) */
   onEntrances?(ids: string[]): void
-  /** script effects' motion (the code layer); absent = scripts play as their base */
-  script?: ScriptSampler
+  /** one slide's script-effect motion (the code layer); absent = scripts play as their base */
+  scriptFor?(slide: Slide): ScriptSampler | undefined
 }
 
 /** How long past a group's end the wall clock waits before landing it anyway. */
@@ -248,7 +288,7 @@ export class AnimPlayer {
   paint() {
     if (!this.slide || !this.plan) return
     const byId = new Map(this.slide.elements.map((el) => [el.id, el]))
-    for (const [id, s] of stateAt(this.slide, this.click, this.t, { plan: this.plan, script: this.host.script })) {
+    for (const [id, s] of stateAt(this.slide, this.click, this.t, { plan: this.plan, script: this.host.scriptFor?.(this.slide) })) {
       if (this.held.has(id)) continue
       const node = this.nodes.get(id)
       const el = byId.get(id)

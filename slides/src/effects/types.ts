@@ -56,12 +56,13 @@ export interface FrameSource {
 }
 
 /**
- * A script effect's motion, supplied by the host (phase 5: baked in a
- * sandbox). Returns the frame the script produced, or null when the script
+ * A script effect's motion, supplied by the host for ONE slide (code/host.ts
+ * bakes it in a sandbox; `index` is the effect's position in that slide's
+ * list, which names it when it has no id). Returns the frame the script produced, or null when the script
  * cannot run (code off, not baked yet, an error) — the effect then plays as
  * its base, i.e. as nothing.
  */
-export type ScriptSampler = (fx: AnimEffect, base: Frame, p: number, t: number) => Partial<Frame> | null
+export type ScriptSampler = (fx: AnimEffect, base: Frame, p: number, t: number, index: number) => Partial<Frame> | null
 
 export interface ApplyCtx {
   /** the target element's model fields */
@@ -70,6 +71,8 @@ export interface ApplyCtx {
   t: number
   /** the effect's duration in seconds */
   duration: number
+  /** the effect's position in slide.anim */
+  index: number
   script?: ScriptSampler
 }
 

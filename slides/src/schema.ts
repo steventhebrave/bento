@@ -81,6 +81,21 @@ export function buildSchema(version: string): JsonSchema {
   $defs.element = { oneOf: elementTypes.map((t) => ({ $ref: `#/$defs/${t}` })) }
   $defs.slide = objectSchema(MODEL_KEYS.slide, SLIDE_CHECKS, ['id'])
   $defs.slide.description = 'stateOf = hidden variant reached by a link; transition morph pairs same-id elements'
+  // FORK — the animation sequence and the code layer, with worked examples
+  // (the same ones docs/agents.md walks through)
+  const slideProps = $defs.slide.properties as Record<string, JsonSchema>
+  slideProps.anim = {
+    ...slideProps.anim,
+    description: 'FORK: the click order. Each effect: el (element id), type (appear|disappear|fade-in|fade-out|spin|move|script), trigger (click = a new click [default] | with = alongside the previous | after = when it ends), delay/duration in seconds, ease (preset name or [x1,y1,x2,y2]). Effects accumulate; an element whose first effect is an entrance starts hidden. Present = elements\' fx.step/enter are ignored on this slide.',
+    examples: [[
+      { id: 'a1', el: 'label', type: 'fade-in', trigger: 'click', duration: 0.6, fromDy: 20 },
+      { id: 'a2', el: 'arrow', type: 'move', trigger: 'with', dx: 420, dy: 0, duration: 1.2, ease: [0.65, 0, 0.35, 1] },
+      { id: 'a3', el: 'arrow', type: 'script', trigger: 'with', script: 'hop', params: { height: 120 }, duration: 1.2 },
+      { id: 'a4', el: 'gear', type: 'spin', trigger: 'after', deg: -720, duration: 2 },
+    ]],
+  }
+  $defs.canvas.description = 'FORK: a box drawn by doc.scripts[script] (kind canvas) on the show clock — draw(g, ctx) with ctx.click and ctx.t (seconds since that click began). poster is the still every surface that runs no code shows (thumbnails, print, code off); the editor captures it at posterAt.'
+  $defs.canvas.examples = [{ id: 'pend', type: 'canvas', script: 'pendulum', params: { length: 1.2 }, x: 760, y: 120, w: 400, h: 480, rotation: 0, opacity: 1 }]
   $defs.tableStyle = ELEMENT_CHECKS.style.schema!
   $defs.theme = obj(MODEL_KEYS.theme, {
     background: color('slide background'), color: color('body text colour'), accent: color('accent colour'),
@@ -109,6 +124,16 @@ export function buildSchema(version: string): JsonSchema {
     layouts: { type: 'array', maxItems: LIMITS.slides, items: { $ref: '#/$defs/slide' }, description: 'slide templates' },
     assets: { type: 'object', maxProperties: LIMITS.assets, additionalProperties: { type: 'string', maxLength: LIMITS.asset }, description: 'key → data: URI or svg, used as asset:<key>' },
     blobs: { type: 'object', description: 'runtime-written' },
+    scripts: {
+      type: 'object', maxProperties: LIMITS.scripts,
+      propertyNames: { pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' },
+      additionalProperties: obj(['src'], { src: str(LIMITS.scriptSrc, 'an ES module: export const meta = {kind, params, …}; export default function …') }, ['src']),
+      description: 'FORK: the deck\'s code by name. kind "effect": export default (p, base, params, ctx) => partial frame (a script effect). kind "canvas": export default (g, ctx) => void (a code canvas). Runs only in a sandbox: no network, no storage, no DOM. Guide: docs/agents.md',
+      examples: [{
+        hop: { src: "export const meta = { kind: 'effect', drives: ['y'], params: { height: { type: 'number', default: 80, min: 0, max: 400, unit: 'px' } } }\nexport default function hop(p, base, params) { return { y: base.y - params.height * Math.sin(p * Math.PI) } }" },
+        pendulum: { src: "export const meta = { kind: 'canvas', params: { length: { type: 'number', default: 0.8, min: 0.2, max: 2, unit: 'm' } } }\nexport default function draw(g, ctx) {\n  const th = ctx.click === 0 ? 0.6 : 0.6 * Math.exp(-0.15 * ctx.t) * Math.cos(Math.sqrt(9.81 / ctx.params.length) * ctx.t)\n  const L = ctx.height * 0.75, x = ctx.width / 2 + L * Math.sin(th), y = 20 + L * Math.cos(th)\n  g.strokeStyle = '#8a94a6'; g.lineWidth = 3; g.beginPath(); g.moveTo(ctx.width / 2, 20); g.lineTo(x, y); g.stroke()\n  g.fillStyle = '#ffb86b'; g.beginPath(); g.arc(x, y, 22, 0, 2 * Math.PI); g.fill()\n}" },
+      }],
+    },
     fonts: { type: 'array', maxItems: LIMITS.assets, items: obj(MODEL_KEYS.font, {
       family: { type: 'string', maxLength: LIMITS.fontStack }, asset: str(LIMITS.scalar, 'asset:<key> or builtin:<name>'),
       weight: str(64), style: str(64),

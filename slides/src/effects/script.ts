@@ -38,7 +38,7 @@ export const script: EffectDef = {
   apply(s, p, fx, ctx) {
     if (!ctx.script) return s
     const base = frameOfState(ctx.el, s)
-    const out = ctx.script(fx, base, p, ctx.t)
+    const out = ctx.script(fx, base, p, ctx.t, ctx.index)
     if (!out) return s
     const next = { ...s }
     const baseOpacity = ctx.el.opacity ?? 1

@@ -3,6 +3,7 @@
 // Boot sequence. Order matters: capture the pristine document BEFORE any DOM
 // mutation — the captured copy is what gets re-serialized on save.
 
+import { codeEnabled, setCodeEnabled } from './code/host'
 import './styles.css'
 import { anim } from './anim'
 import { configureApp } from '../../kernel/src/app.ts'
@@ -329,6 +330,15 @@ dismissSplash()
   },
   /** animation engine, exposed for scripting/diagnostics */
   anim,
+  /**
+   * FORK — the deck's code (the code layer): whether this VIEWER lets decks
+   * run their sandboxed code (a preference, never in the file), and the
+   * switch itself.
+   */
+  code: {
+    get enabled() { return codeEnabled() },
+    setEnabled: (on: boolean) => setCodeEnabled(!!on),
+  },
   /** i18n: t/locale/setLocale/choices — setLocale('x-pseudo') audits the sweep */
   i18n: i18nApi,
   /** live-collaboration session: actor id, connected peers, force a diff-flush */

@@ -10,7 +10,7 @@
 // a typo just means the styling does not apply.
 
 export const MODEL_KEYS = {
-    "doc": ["assets", "blobs", "collab", "docId", "fonts", "format", "layouts", "meta", "modified", "present", "readonly", "size", "slides", "template", "theme", "title", "version"],
+    "doc": ["assets", "blobs", "collab", "docId", "fonts", "format", "layouts", "meta", "modified", "present", "readonly", "scripts", "size", "slides", "template", "theme", "title", "version"],
     "slide": ["anim", "background", "comments", "elements", "hidden", "hover", "id", "morphEase", "morphSeconds", "name", "notes", "stateOf", "themeRefs", "transition", "unnumbered"],
     "comment": ["at", "author", "elementId", "id", "replies", "resolved", "text", "x", "y"],
     "element": {
@@ -23,6 +23,7 @@ export const MODEL_KEYS = {
       "media": ["autoplay", "backdropFilter", "blend", "blur", "controls", "fit", "fx", "group", "groupId", "h", "id", "kind", "link", "loop", "morphId", "muted", "opacity", "poster", "radius", "role", "rotation", "shadow", "showOnHover", "src", "themeRefs", "type", "w", "x", "y"],
       "embed": ["app", "backdropFilter", "blend", "blur", "doc", "fx", "group", "groupId", "h", "id", "link", "live", "morphId", "opacity", "role", "rotation", "shadow", "showOnHover", "themeRefs", "type", "url", "view", "w", "x", "y"],
       "code": ["align", "backdropFilter", "blend", "blur", "color", "content", "fontFamily", "fontSize", "fx", "grammarAssetId", "grammarName", "group", "groupId", "h", "id", "lineHeight", "link", "morphId", "opacity", "role", "rotation", "shadow", "showOnHover", "themeAssetId", "themeName", "themeRefs", "type", "valign", "w", "x", "y"],
+      "canvas": ["backdropFilter", "blend", "blur", "fill", "fx", "group", "groupId", "h", "id", "link", "morphId", "opacity", "params", "poster", "posterAt", "role", "rotation", "script", "shadow", "showOnHover", "themeRefs", "type", "w", "x", "y"],
     },
     "fx": ["ambient", "countUp", "enter", "enterDur", "ken", "loop", "order", "step", "typeWriter"],
     "fxKen": ["dir", "duration", "scale"],
@@ -36,6 +37,7 @@ export const MODEL_KEYS = {
     "imageCrop": ["scale", "x", "y"],
     "animEffect": ["deg", "delay", "duration", "dx", "dy", "ease", "el", "fromDx", "fromDy", "id", "keys", "params", "script", "trigger", "type"],
     "animKey": ["at", "deg", "dx", "dy", "ease", "opacity"],
+    "canvasPosterAt": ["click", "t"],
     "size": ["height", "width"],
     "meta": ["author", "company", "event", "keywords", "subject"],
     "theme": ["accent", "background", "chartPalette", "codePalette", "color", "fontFamily", "headingFamily", "palette", "table"],

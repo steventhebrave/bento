@@ -416,7 +416,7 @@ function slideAssetsExceedBudget(slide: Slide, doc: BentoDoc, budget: number): b
         size += markup.length
         if (size > budget) return true
       }
-    } else if (el.type === 'media') {
+    } else if (el.type === 'media' || el.type === 'canvas') {
       const poster = el.poster ? resolveAsset(doc, el.poster) : ''
       if (poster && !seen.has(poster)) {
         seen.add(poster)

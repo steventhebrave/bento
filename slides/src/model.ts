@@ -420,9 +420,34 @@ export interface EmbedElement extends ElementBase {
   live?: boolean
 }
 
+/**
+ * A code canvas (FORK — Tier 3 of the code layer): a box whose PIXELS are
+ * drawn by a script from `doc.scripts` (`export default function draw(g,
+ * ctx)`), given the current click and the seconds since it began. Its frame,
+ * size, rotation and animation effects belong to the UI like any element's;
+ * only what is drawn inside belongs to the code. The code runs only in a
+ * network-less, storage-less sandbox (src/code/), never in the page; every
+ * surface that runs no code — thumbnails, print/PDF, the file-manager
+ * preview, a viewer with deck code switched off — shows `poster`, a still
+ * the editor captures from the sandbox at `posterAt`.
+ */
+export interface CanvasElement extends ElementBase {
+  type: 'canvas'
+  /** key of the drawing script in doc.scripts */
+  script: string
+  /** parameter values, declared by the script's `meta.params` */
+  params?: Record<string, number | string | boolean>
+  /** the static still: a data: URI or "asset:<key>" */
+  poster?: string
+  /** the click and second the poster is captured at; absent = click 0, 0 s */
+  posterAt?: { click: number; t: number }
+  /** painted behind the drawing; absent = transparent */
+  fill?: string
+}
+
 export type SlideElement =
   | TextElement | ShapeElement | ImageElement | SvgElement | ChartElement | TableElement | MediaElement | CodeElement
-  | EmbedElement
+  | EmbedElement | CanvasElement
 
 /**
  * A review comment thread. Editor-only metadata: never rendered while
@@ -692,6 +717,17 @@ export interface BentoDoc {
   }
   /** shared assets (raw SVG markup or data URIs), referenced by key */
   assets?: Record<string, string>
+  /**
+   * FORK — the deck's code (the code layer, docs/animation-design.md): ES
+   * modules by name, each `export const meta = {…}` + `export default`
+   * function. `meta.kind` 'effect' = a script effect's motion (Tier 2,
+   * `(p, base, params, ctx) => frame`); 'canvas' = a code canvas's drawing
+   * (Tier 3, `(g, ctx) => void`). Every reader treats this as inert DATA; the
+   * reference runtime executes it only inside a sandboxed, network-less,
+   * storage-less worker — never in the page, never with the document's
+   * privileges. A clipboard paste never carries it.
+   */
+  scripts?: Record<string, { src: string }>
   /**
    * Live-collab blob references for LARGE assets (docs/blob-offload.md).
    *

@@ -2,16 +2,21 @@
 
 A three-slide science deck that exercises this fork's animation and code
 layer. It is kept as source: `deck.json` (the document, compact form) and
-`scripts/*.js` (its code). Pack it into a single `.bento.html`:
+`scripts/*.js` (its code). Pack it into a single `.bento.html` (the first
+time, run `npm install` in `slides/` before building):
 
 ```sh
-cd slides && npm run build:single && cd ..
-node scripts/deck-code.mjs pack examples/pendulum /tmp/pendulum.bento.html
+cd slides
+npm run build:single
+cd ..
+node scripts/deck-code.mjs pack examples/pendulum examples/pendulum/pendulum.bento.html --shell slides/dist-single/Bento_Slides.bento.html
 ```
 
-Open `/tmp/pendulum.bento.html` in a current browser — it works offline.
-The first open captures the code canvas's still picture; save (⌘S) to keep
-it in the file.
+(The same commands work in PowerShell, cmd and any Unix shell.) Open
+`examples/pendulum/pendulum.bento.html` in a current browser — it works
+offline; packed decks under `examples/` are git-ignored.
+The first open captures the code canvas's still picture; save (⌘S, or Ctrl+S
+on Windows) to keep it in the file.
 
 ## What each slide shows
 
@@ -43,8 +48,8 @@ it in the file.
 ## Editing the code as files
 
 ```sh
-node scripts/deck-code.mjs extract /tmp/pendulum.bento.html examples/pendulum
-node scripts/deck-code.mjs pack examples/pendulum /tmp/pendulum.bento.html
+node scripts/deck-code.mjs extract examples/pendulum/pendulum.bento.html examples/pendulum
+node scripts/deck-code.mjs pack examples/pendulum examples/pendulum/pendulum.bento.html
 ```
 
 `extract` writes `deck.json` (the full form, replacing the compact one here)

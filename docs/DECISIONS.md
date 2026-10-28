@@ -12065,8 +12065,16 @@ its own unrotated frame; absent = the centre. Settled:
 - **Fractions, not pixels**, so a resize keeps the anchor at the same place
   on the shape; values outside 0..1 (clamped to ±10) put it outside the box —
   a pendulum's pivot above its bob. The centre is stored as no anchor at all.
-- **The canvas crosshair appears only for an element that has an anchor.**
-  Shown at every selected element's centre, it sat exactly where people
-  double-click to edit text (two existing rigs tripped on it). An element
-  gets one from the Anchor picker in Position & size; from then on its
-  crosshair drags it, and double-clicking the crosshair removes it.
+- **Every selection box has the crosshair, and its middle is open.** A
+  crosshair at each element's centre sits exactly where people grab things
+  and double-click to edit text — a first version, a solid 14px target,
+  broke text double-click (two existing rigs tripped on it) and was hidden
+  unless an anchor was set; the owner asked for it on every selection. The
+  fix is the hit area, not the visibility: only the RING takes the pointer
+  (svg `pointer-events: stroke`), so a press, drag or double-click at the
+  exact centre reaches the element (or, on a corner anchor, Moveable's corner
+  control) as if the crosshair were not there. On the ring, a press must move
+  3px to become an anchor drag, a double-click is re-sent to whatever is
+  beneath, and an element under 44px on screen shows no centre crosshair
+  (there would be nowhere left to grab it). The panel's middle point removes
+  an anchor.

@@ -207,9 +207,11 @@ names provisional.
   (rotation still about the centre). `src/anchor.ts` (pure maths); spin.ts adds the
   pivot offset to the state; canvas.ts moves the box after Moveable rotates/resizes a
   single element so the anchor's point holds (Alt-resize = Moveable's own when an
-  anchor is set); `editor/anchorhandle.ts` is the draggable crosshair, shown ONLY for an
-  element that has an anchor (at the centre it blocked text double-clicks; layer z
-  3001, above Moveable's corner controls); the panel picker in Position & size sets one. Rigs:
+  anchor is set); `editor/anchorhandle.ts` is the crosshair on EVERY single selection box: an svg
+  whose RING alone takes the pointer (`pointer-events: stroke`) — its open middle passes
+  presses/drags/double-clicks to the element, so grab-the-middle and double-click-to-edit
+  still work; ring double-clicks are re-sent beneath; none under 44px on screen unless
+  anchored; layer z 3001, above Moveable's corner controls. Panel picker in Position & size. Rigs:
   test-slides-anchor.ts, test-slides-anchor-browser.mjs.
 - **Signed writes / read-only tiers (v0.9.18)**: three file modes now, split
   from the old conflated `readonly`. (1) **Presentation package** = `doc.readonly`

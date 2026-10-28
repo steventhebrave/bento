@@ -3010,17 +3010,19 @@ input.ed-toggle { width: 16px; height: 16px; accent-color: #5E7699; cursor: poin
 .ed-previewing .ed-anim-ghost { display: none; }
 .ed-previewing .ed-anchor-layer { display: none; }
 /* FORK: an element's anchor (editor/anchorhandle.ts) — a crosshair in a ring,
-   shown only for an element that has one (the centre is everyone's default,
-   and a target there would sit where people double-click to edit text) */
+   on every element that has Moveable's box; quieter at the centre, where
+   everything pivots unless told otherwise */
 .ed-anchor-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3001; pointer-events: none; } /* above Moveable's controls: an anchor put on a corner stays grabbable */
 .ed-anchor-handle {
-  position: absolute; width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box;
-  border: 2px solid var(--blue); background: var(--surface);
-  pointer-events: auto; cursor: crosshair; touch-action: none; opacity: 0.9;
+  position: absolute; width: 24px; height: 24px; overflow: visible;
+  pointer-events: none; cursor: crosshair; touch-action: none; opacity: 0.95;
 }
-.ed-anchor-handle::before, .ed-anchor-handle::after { content: ''; position: absolute; background: var(--blue); }
-.ed-anchor-handle::before { left: 50%; top: -5px; width: 2px; height: 20px; margin-left: -1px; }
-.ed-anchor-handle::after { top: 50%; left: -5px; height: 2px; width: 20px; margin-top: -1px; }
+/* only the ring takes the pointer — the open middle belongs to the element */
+.ed-anchor-handle .hit { fill: none; stroke: transparent; stroke-width: 7; pointer-events: stroke; }
+.ed-anchor-handle .halo { fill: none; stroke: var(--surface); stroke-width: 4.5; }
+.ed-anchor-handle .ring { fill: none; stroke: var(--blue); stroke-width: 2; }
+.ed-anchor-handle .cross { stroke: var(--blue); stroke-width: 2; stroke-linecap: round; }
+.ed-anchor-handle.centre { opacity: 0.8; }
 .ed-anchor-handle:hover { opacity: 1; }
 
 /* the move effect's path, ghost and end handle — in the SCALED stage (slide px) */

@@ -541,3 +541,11 @@ runs:
       # a tween accepts an array ease.
       shell: bento-step {0}
       run: node scripts/test-anim-bezier.ts
+
+    - name: Animation clock never runs backwards
+      # The first frame after a tween starts is stamped with the time the frame
+      # BEGAN, which can precede the input that started it: a negative dt
+      # wrapped the progress to ≈1 and every such animation flashed its end
+      # state for one frame. dt is clamped at 0, in the loop and in tick().
+      shell: bento-step {0}
+      run: node scripts/test-anim-clock.ts

@@ -376,6 +376,9 @@ export class Tween {
   /** advance by dt seconds; returns false when finished */
   tick(dt: number): boolean {
     if (this.dead) return false
+    // a negative step would put elapsed below zero, where the cycle maths
+    // wraps to the END of the tween (the "flash of the final state")
+    if (!(dt > 0)) dt = 0
     if (this.delay > 0) {
       this.delay -= dt
       if (this.delay > 0) return true
@@ -451,9 +454,12 @@ function tickerOn() {
 
 function loop(now: number) {
   if (manual) { running = false; return }
-  // clamp long gaps (throttled tabs) so loops don't leap wildly
-  const dt = Math.min((now - last) / 1000, 0.25) * timeScale
-  last = now
+  // clamp long gaps (throttled tabs) so loops don't leap wildly — and never
+  // let time run BACKWARDS: a frame's timestamp is when the frame began, and
+  // a tween started from input handled inside that frame recorded a later
+  // `last`, so the first dt came out negative (scripts/test-anim-clock.ts)
+  const dt = Math.max(0, Math.min((now - last) / 1000, 0.25)) * timeScale
+  last = Math.max(last, now)
   for (const tw of [...live]) tw.tick(dt)
   if (live.size) requestAnimationFrame(loop)
   else running = false

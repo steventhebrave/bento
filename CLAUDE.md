@@ -190,6 +190,18 @@ names provisional.
   test-slides-anim-present-browser.mjs, kernel test-anim-bezier.ts (eases live in
   kernel/src/ease.ts). Self-update is OFF in this fork (`configureApp
   selfUpdate:false`). Decisions: docs/DECISIONS.md 2026-10-28 (FORK).
+- **Code layer (FORK, `doc.scripts` + `canvas` element)** — `src/code/`: `runtime.ts`
+  (the sandbox's own source: a Worker inside `<iframe sandbox="allow-scripts">` with
+  CSP `default-src 'none'`; its srcdoc is written with `‹` for `<` swapped at runtime —
+  a tag literal in the bundle made the build compressor ship 718KB of JS as plaintext),
+  `host.ts` (SandboxFrame with per-request deadlines + watchdog reset; CodeHost: metadata,
+  BAKE of script effects at 120 samples/s, per-slide samplers; CanvasRunner; the viewer
+  switch `bento-code`, which tears everything down when off), `bake.ts` (pure: jobs,
+  trackKey = slide + effect, trackSampler), `showcode.ts` (live canvases on the show's
+  click clock), `templates.ts`. Editor: `editor/codeui.ts` (chip, Deck code dialog,
+  poster capture written in place with `store.touch()`, preview canvases, generated param
+  controls). Rigs: test-slides-code-{format,sandbox-browser,present-browser,
+  editor-browser}, test-deck-code. Trust model: docs/DECISIONS.md (FORK, code layer).
 - **Signed writes / read-only tiers (v0.9.18)**: three file modes now, split
   from the old conflated `readonly`. (1) **Presentation package** = `doc.readonly`
   (unchanged: PLAYER file, present-only, collab stripped) — "Save as

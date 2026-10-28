@@ -93,3 +93,6 @@ home/android/*/build/
 # itself ships none, so anything here is a working copy, not a shared contract.
 .claude/agents
 .claude/commands/team
+
+# packed example decks (examples/*/ hold their sources)
+examples/**/*.bento.html

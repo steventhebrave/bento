@@ -11968,3 +11968,75 @@ means: no launch check, no manual check, no request of any kind (checked before
 the network), build/apply refuse. Other apps in the repo and the release
 scripts/keys are untouched; language packs still come from the signed channel
 (they never re-splice the deck).
+
+## 2026-10-28 — FORK: the code layer — deck code runs, by default, only in a sandbox; the viewer can turn it off
+
+The fork's code layer (docs/animation-design.md, Parts 4–5) has three tiers:
+Tier 1 is data (keyframes and unknown keys through the pane's JSON box, held
+to the paste gate's rule); Tiers 2 and 3 are JavaScript carried in the file as
+`doc.scripts: { [name]: { src } }` — script effects (`(p, base, params, ctx)
+=> partial frame`) and code canvases (`(g, ctx) => void`). Settled with the
+deck's owner (option A of the design):
+
+- **Sandboxed code runs by default, visibly, with one switch.** A deck that
+  carries code shows a chip in the editor's top bar ("ƒ Code") and an "ƒ"
+  switch in the speaker window. The switch is the VIEWER'S preference
+  (localStorage `bento-code`, default on) — never in the file, like reduced
+  motion and locale. Off means nothing runs at all: no frame is started, an
+  idle one is torn down; canvases show their posters and script effects play
+  as their base (the UI-authored effects only).
+- **The boundary, and only this boundary.** Code never runs in the page. It
+  runs in a Worker started inside an `<iframe sandbox="allow-scripts">`
+  (opaque origin: no cookies, storage or reach into the page; no
+  same-origin, forms, popups or top navigation) whose srcdoc carries
+  `Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'
+  blob:; worker-src blob:; style-src 'unsafe-inline'` (no fetch, XHR,
+  WebSocket, EventSource, beacon, or imports from anywhere but blob:). The
+  frame's own bootstrap (ours) only relays messages, and accepts them only
+  from the embedding window. Every request has a deadline; a script that
+  overruns it has its worker terminated from outside its thread. Probed,
+  not assumed: scripts/test-slides-code-sandbox-browser.mjs attacks from
+  inside with every channel against a counting local server (control: the
+  page reaches it) and gets zero requests; a permissive CSP fails it.
+- **What comes back is data, re-checked.** Baked frames are numbers and short
+  strings (the worker keeps only the declared keys); the engine uses only
+  finite numbers; a shape's fill is written only when it matches a colour
+  pattern (never `url(…)`), and a text colour goes through `style.color`,
+  which takes nothing but a colour. Posters must be PNG `data:` URIs. Nothing
+  a script returns is ever HTML.
+- **Determinism is enforced, not requested.** Math.random is seeded per effect
+  (its id) or canvas (its id) and re-seeded for every call; Date.now and
+  performance.now read 0. Script effects are evaluated ahead of time at 120
+  samples a second (cap 2400) in list order — an earlier script is part of a
+  later one's `base` — and read back synchronously through the engine's
+  ScriptSampler, so scrubbing, ←, reduced motion and the morph's end state
+  all keep reading a pure function. Tracks are filed per slide AND effect
+  (effect ids repeat across duplicated slides).
+- **The paste gate keeps stripping code.** A clipboard paste never carries
+  `doc.scripts` (clips carry elements, assets and fonts only); a pasted canvas
+  keeps its script NAME and shows its poster until the target deck has that
+  script. The load gate (restoregate) passes `doc.scripts` as inert strings —
+  shape and size checked (names are letters, digits, `-`, `_`, ≤ 64; sources
+  ≤ 256 KB; ≤ 64 scripts), content never parsed in the page.
+- **Live collaboration: content like the rest.** `scripts` is classed
+  'content' (docclass.ts), so it syncs as a doc-level value; no wire or
+  engine change. Anyone who can edit a deck could already change everything
+  it shows; the sandbox is what keeps a collaborator's code from reaching a
+  reader's browser beyond it.
+- **Posters are derived, not authored.** The editor captures a canvas's still
+  in the sandbox (at `posterAt`, default click 0, 0 s) whenever its script,
+  parameters, size or poster moment change THIS session, and writes it in
+  place as an asset with no undo step (like a linked chart's data). A poster
+  that arrived with the file is trusted, so opening a deck never dirties it.
+  Thumbnails, print/PDF, the file-manager preview and reduced motion use the
+  poster; a canvas poster asset is kept by save-time pruning.
+- **The format rule changed, deliberately.** docs/format.md no longer says "a
+  document can never carry executable code"; it says no RENDERED field is
+  ever evaluated and code lives only in `doc.scripts`, which runs only in the
+  sandbox. Every other field keeps the old rule.
+- **Bundle hygiene.** The sandbox's document is written with a stand-in for
+  `<` swapped at runtime: a tag-shaped literal in the bundle was matched by
+  the build compressor's search for the shell's real `<body`, which shipped
+  718 KB of JavaScript as plaintext in a `<style>` block (the app still
+  worked; the conformance gate passed it). test-slides-code-present-browser
+  checks the built shell for exactly that.

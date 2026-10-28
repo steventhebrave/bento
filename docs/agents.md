@@ -334,6 +334,10 @@ without them — and elements should carry the full field set shown.
   browsers require `muted:true` for a video to autoplay. **Embed only SHORT
   clips** — a big data URI bloats the file and makes it slow to open/save;
   host large media and reference its URL instead.
+- **canvas** (this fork): `script` = a key of `doc.scripts` whose module draws
+  the box, `params?`, `poster?` (a still for every surface that runs no code),
+  `posterAt?: {click, t}`, `fill?`. See [Click-by-click animation and the
+  deck's code](#click-by-click-animation-and-the-decks-code-this-fork).
 
 ## The rules that make decks feel designed
 
@@ -455,6 +459,80 @@ model keeps the raw token, so numbering/props update automatically):
 properties `{{author}}`, `{{company}}`, `{{subject}}`, `{{event}}`. Set the
 props in an optional top-level `"meta": {author, company, subject, event,
 keywords}` object — great for title slides and footers that fill from one place.
+
+## Click-by-click animation and the deck's code (this fork)
+
+This build of bento/slides adds PowerPoint-style animation lists and a
+sandboxed code layer. Full field reference: docs/format.md (`slide.anim`,
+`doc.scripts`, `canvas`). `window.bento.schema()` describes every field.
+
+**An animation list** — on a slide, `anim` is the click order. Each effect
+names its element (`el`), a `type` (`appear`, `disappear`, `fade-in`,
+`fade-out`, `spin`, `move`, `script`) and a `trigger`: `click` (default)
+starts a new click, `with` runs alongside the previous effect, `after`
+follows it. Effects accumulate — a moved arrow stays moved.
+```json
+{ "id":"s-gear","transition":"none","background":"#0f1420","notes":"","elements":[
+  { "id":"label-a","type":"text","x":96,"y":120,"w":400,"h":60,"html":"Input shaft","fontSize":32,"color":"#eef2f7","align":"left","valign":"top","lineHeight":1.2,"rotation":0,"opacity":1 },
+  { "id":"arrow","type":"shape","shape":"arrow","x":96,"y":300,"w":200,"h":60,"fill":"#ffb86b","stroke":"none","strokeWidth":0,"radius":0,"rotation":0,"opacity":1 },
+  { "id":"gear","type":"shape","shape":"ellipse","x":700,"y":200,"w":240,"h":240,"fill":"#5b8def","stroke":"none","strokeWidth":0,"radius":0,"rotation":0,"opacity":1 } ],
+  "anim":[
+    { "id":"a1","el":"label-a","type":"fade-in","trigger":"click","duration":0.6,"fromDy":20 },
+    { "id":"a2","el":"arrow","type":"move","trigger":"with","dx":420,"dy":0,"duration":1.2,"ease":[0.65,0,0.35,1] },
+    { "id":"a3","el":"gear","type":"spin","trigger":"after","deg":-720,"duration":2,"ease":"power2.inOut" },
+    { "id":"a4","el":"label-a","type":"fade-out","trigger":"click" } ] }
+```
+Click 1 fades the label in while the arrow travels on a custom cubic-bezier;
+then the gear turns two turns anticlockwise; click 2 fades the label out. An
+element whose FIRST effect is an entrance starts hidden. `ease` is a preset
+name or `[x1,y1,x2,y2]`. A slide with `"transition":"morph"` may set its own
+`"morphSeconds"` and `"morphEase"` (the deck default is `present.morphSeconds`
+/ `present.morphEase`); the morph out of a slide starts from where its list
+left every element.
+
+**A script effect** — the list owns WHEN, a script owns WHAT. Put the module
+in `doc.scripts` and point an effect at it. It layers on the effects before
+it (`base`), so a move plus a script that drives only `y` makes an element
+hop along the move:
+```json
+"scripts": { "hop": { "src": "export const meta = { kind: 'effect', drives: ['y'], params: { height: { type: 'number', default: 80, min: 0, max: 400, unit: 'px' } } }\nexport default function hop(p, base, params) { return { y: base.y - params.height * Math.sin(p * Math.PI) } }" } }
+```
+```json
+{ "id":"a5","el":"arrow","type":"script","trigger":"with","script":"hop","params":{"height":120},"duration":1.2 }
+```
+
+**A code canvas** — a box drawn by a script, on the show's clock:
+`draw(g, ctx)` gets a 2D context the size of the element and `ctx.click`
+(the slide's click) and `ctx.t` (seconds since that click began). Here a
+pendulum hangs still on arrival and swings, damped, from click 1:
+```json
+"scripts": { "pendulum": { "src": "export const meta = { kind: 'canvas', params: { length: { type: 'number', default: 0.8, min: 0.2, max: 2, unit: 'm' } } }\nexport default function draw(g, ctx) {\n  const th0 = 0.6, w = Math.sqrt(9.81 / ctx.params.length)\n  const th = ctx.click === 0 ? th0 : th0 * Math.exp(-0.15 * ctx.t) * Math.cos(w * ctx.t)\n  const L = ctx.height * 0.75, x = ctx.width / 2 + L * Math.sin(th), y = 20 + L * Math.cos(th)\n  g.strokeStyle = '#8a94a6'; g.lineWidth = 3\n  g.beginPath(); g.moveTo(ctx.width / 2, 20); g.lineTo(x, y); g.stroke()\n  g.fillStyle = '#ffb86b'; g.beginPath(); g.arc(x, y, 22, 0, 2 * Math.PI); g.fill()\n}" } }
+```
+```json
+{ "id":"pend","type":"canvas","script":"pendulum","params":{"length":1.2},"x":760,"y":120,"w":400,"h":480,"rotation":0,"opacity":1 }
+```
+The slide needs a click for `ctx.click` to reach 1 — any `click` effect in
+its `anim` gives it one (a canvas can be animated like any element too).
+
+Rules for code:
+- **Pure functions of their inputs.** No timers, no `requestAnimationFrame`,
+  no state between calls: the host asks for any moment, in any order
+  (scrubbing, ←, the morph). `Math.random` is seeded and `Date.now()` is 0
+  inside the sandbox; use `ctx.random()` / `ctx.noise(x)` for variety.
+- **No network, no storage, no DOM.** Code runs in a sandboxed worker; a
+  fetch fails. Everything a script needs must be in its source or `params`.
+- **Declare what you use.** `meta.kind` (`effect` | `canvas`), `meta.drives`
+  for effects, `meta.params` (`{ type, default, min, max, step, options,
+  label, unit }`) — the editor turns params into controls.
+- **Posters.** Thumbnails, PDF, viewers with code switched off and reduced
+  motion see a canvas's `poster`. The editor captures it automatically when
+  the deck is opened with code on; a deck generated outside the editor can
+  ship without one (validate() notes it) — or render one yourself.
+- **Edit code as files**: `node scripts/deck-code.mjs extract deck.bento.html`
+  writes `deck.json` + `scripts/<name>.js`; `pack <dir>` splices them back
+  (it refuses code that does not parse). In a running deck,
+  `window.bento.code.enabled` / `setEnabled(on)` read and flip the viewer's
+  switch.
 
 ## Gotchas
 

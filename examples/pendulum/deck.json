@@ -116,7 +116,7 @@
         0.2,
         1
       ],
-      "notes": "The gear morphs into the corner on a slow-start curve (its two turns do not unwind). Click 1: F appears and the arrow pushes the block. Click 2: the displacement label. Click 3: the labels and arrow leave together; the block stays where it was pushed.",
+      "notes": "The gear morphs into the corner on a slow-start curve (its two turns do not unwind). Click 1: F appears and the arrow pushes the block — the slide is an ordinary Move effect, and a script effect (\"rock\", deck code) running WITH it tilts the block back and forth as it goes, dying away so it lands square. Click 2: the displacement label. Click 3: the labels and arrow leave together; the block stays where it was pushed.",
       "elements": [
         {
           "id": "heading",
@@ -228,6 +228,19 @@
           "ease": "power2.out"
         },
         {
+          "id": "p3s",
+          "el": "block",
+          "type": "script",
+          "trigger": "with",
+          "script": "rock",
+          "params": {
+            "tilt": 10,
+            "swings": 3
+          },
+          "delay": 0.1,
+          "duration": 0.9
+        },
+        {
           "id": "p4",
           "el": "lab-f",
           "type": "move",
@@ -270,7 +283,7 @@
       "id": "s-swing",
       "transition": "morph",
       "background": "#0f1420",
-      "notes": "The block morphs into the bob from where the push left it (not from its model position). Click 1: the restoring-force label. Click 2: the period formula — it depends only on the length.",
+      "notes": "The block morphs into the bob from where the push left it (not from its model position). Click 1: the static rod and bob hand over to a code canvas (\"swing\", deck code) drawn in exactly the same place — it has been nudged and swings, damped; then the restoring-force label, then the period formula. The swing is a pure function of the click and the seconds since it: scrub it in the Animate tab. Select the pendulum and change Length in the panel — the period follows T = 2π√(L/g).",
       "elements": [
         {
           "id": "heading",
@@ -316,6 +329,15 @@
           "fill": "#ffb86b"
         },
         {
+          "id": "pend",
+          "type": "canvas",
+          "script": "swing",
+          "x": 440,
+          "y": 160,
+          "w": 400,
+          "h": 440
+        },
+        {
           "id": "lab-g",
           "type": "text",
           "x": 760,
@@ -344,10 +366,29 @@
       ],
       "anim": [
         {
+          "id": "w0",
+          "el": "rod",
+          "type": "disappear",
+          "trigger": "click"
+        },
+        {
+          "id": "w0b",
+          "el": "block",
+          "type": "disappear",
+          "trigger": "with"
+        },
+        {
+          "id": "w0c",
+          "el": "pend",
+          "type": "appear",
+          "trigger": "with"
+        },
+        {
           "id": "w1",
           "el": "lab-g",
           "type": "fade-in",
-          "trigger": "click",
+          "trigger": "with",
+          "delay": 0.8,
           "fromDx": -40,
           "duration": 0.6,
           "ease": "power2.out"
@@ -356,10 +397,19 @@
           "id": "w2",
           "el": "lab-t",
           "type": "fade-in",
-          "trigger": "click",
+          "trigger": "after",
+          "delay": 1.6,
           "duration": 0.8
         }
       ]
     }
-  ]
+  ],
+  "scripts": {
+    "rock": {
+      "src": "@file scripts/rock.js"
+    },
+    "swing": {
+      "src": "@file scripts/swing.js"
+    }
+  }
 }

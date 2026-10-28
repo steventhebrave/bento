@@ -38,8 +38,15 @@ dry reference of every field.
 - **Additive & forward-compatible.** Unknown fields are preserved through
   parse → serialize. Old files must open in newer shells. Never repurpose or
   remove a field; add optional ones.
-- **Pure data.** Text HTML is sanitized to an inline whitelist; chart options
-  are pure JSON (no functions). A document can never carry executable code.
+- **Data, and code only where it is fenced.** Text HTML is sanitized to an
+  inline whitelist; chart options are pure JSON (no functions); no field the
+  page renders is ever evaluated. The ONE place a document carries code is
+  `doc.scripts` (this fork's code layer, [below](#the-decks-code-docscripts-fork)):
+  JavaScript modules that every reader treats as inert strings and that the
+  reference runtime executes only inside a sandboxed, network-less,
+  storage-less worker — never in the page, never with the document's
+  privileges, and not at all when the viewer switches deck code off. A
+  clipboard paste never carries them.
 - **Self-contained.** Everything a view needs is in the file. External
   references (image/media URLs) are allowed but break the offline guarantee;
   embedded `data:`/`asset:` sources keep it intact.
@@ -61,7 +68,8 @@ the string `</script>` can never appear and terminate the block.
 | `theme` | `Theme` | yes | Deck-wide defaults (see below). |
 | `slides` | `Slide[]` | yes | Linear order; state slides sit right after their parent. Must be non-empty. |
 | `modified` | `string` (ISO) | yes | Last-modified timestamp. |
-| `present?` | `{ slideNumber?, controls?, progress? }` | no | Present-mode Reveal chrome toggles. |
+| `present?` | `{ slideNumber?, controls?, progress?, morphSeconds?, morphEase? }` | no | Present-mode Reveal chrome toggles, and the deck's default morph duration (seconds, default `0.65`) and easing (an [`Ease`](#ease)). |
+| `scripts?` | `Record<string, { src }>` | no | FORK — the deck's code: ES modules by name (see [The deck's code](#the-decks-code-docscripts-fork)). |
 | `assets?` | `Record<string,string>` | no | Shared blobs (raw SVG markup or `data:` URIs), referenced by key as `"asset:<key>"`. |
 | `fonts?` | `Array<{ family, asset, weight?, style? }>` | no | Embedded `@font-face`s injected at boot; `asset` is a key into `assets` (a woff2 data URI). |
 | `layouts?` | `Slide[]` | no | Slide-shaped templates (see [Layouts](#layouts)). Absent = the built-in starter layouts are offered. |
@@ -95,6 +103,9 @@ the string `</script>` can never appear and terminate the block.
 | `stateOf?` | `string` | no | Marks this slide a hidden *state* variant of the slide with this id (see [Interactive states](#interactive-states)). |
 | `hover?` | `{ type, dim?, default? }` | no | Present-mode hover behaviour: `type: 'focus-group'` (dim elements outside the hovered group) or `'reveal'` (`showOnHover` set swap; `default` names the resting set). |
 | `comments?` | `Comment[]` | no | Review threads. Editor-only — never rendered in present/print, but saved in the file. |
+| `anim?` | `AnimEffect[]` | no | FORK — the slide's [animation sequence](#animation-sequence-slideanim-fork). Present = the slide plays by it and its elements' `fx.step`/`fx.enter`/`fx.order`/`fx.enterDur` are ignored here; absent = the legacy runtime, exactly as before. |
+| `morphSeconds?` | `number` | no | FORK — this slide's morph duration (the transition INTO it), overriding `present.morphSeconds`. |
+| `morphEase?` | `Ease` | no | FORK — this slide's morph easing, overriding `present.morphEase`. |
 
 ### `Comment`
 
@@ -229,6 +240,23 @@ takes `poster?` (`data:`/`asset:`/URL), `fit?` (`contain|cover|fill`),
   (8 MB) and offers a URL instead — a big data URI makes the file slow to open
   and save.
 
+### `canvas` (FORK)
+
+`type: "canvas"` — a box whose pixels a script draws: `script` (a key of
+`doc.scripts` whose `meta.kind` is `'canvas'`), `params?` (values for the
+script's declared `meta.params`: numbers, strings, booleans), `poster?` (a
+still: `data:` URI or `"asset:<key>"`), `posterAt?` (`{ click, t }` — the
+moment the editor captures the poster at; absent = click 0, 0 s), `fill?`
+(painted behind the drawing; absent = transparent).
+
+- The element's frame, rotation, opacity and animation effects belong to the
+  UI like any element's; only what is drawn inside belongs to the script.
+- Live drawing happens only where code runs: the show and the editor's
+  animation preview. Thumbnails, print/PDF, the file-manager preview, reduced
+  motion and a viewer with deck code off all show `poster`. The editor
+  re-captures it whenever the script, its parameters, the size or `posterAt`
+  change.
+
 ---
 
 ## `fx` (presentation effects)
@@ -252,6 +280,97 @@ All `fx` behaviour runs in **present mode only**.
   anchor is `0,0`). `ease` sets per-lap tempo; `speeds[]` gives per-anchor speed
   multipliers (`1` = normal, `<1` dwells, `>1` rushes; length matches the
   anchor count). Never combine a motion-path loop with an entrance tween.
+
+---
+
+## Animation sequence: `slide.anim` (FORK)
+
+An ordered list of effects, PowerPoint's animation pane as data. The state of
+every element at any click is a pure function of `(slide, click, time)`:
+going back lands exactly on the previous click's end; going forward past the
+last click leaves the slide, and a morph out of it starts from that end
+state.
+
+### `AnimEffect`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` | Stable effect id (pane selection, script seeds). |
+| `el` | `string` | The target element's id, on this slide. |
+| `type` | `string` | `appear` · `disappear` · `fade-in` · `fade-out` · `spin` · `move` · `script`. An unknown type keeps its slot and timing and plays as nothing. |
+| `trigger?` | `'click' \| 'with' \| 'after'` | Absent = `click`: each opens a click group. `with` starts with the previous effect; `after` when it ends. Effects before the first `click` play on arrival. |
+| `delay?` | `number` | Seconds after the trigger. |
+| `duration?` | `number` | Seconds. Defaults: appear/disappear instant; fade-in/out `0.5`; spin, move, script `1`. |
+| `ease?` | `Ease` | Defaults: fade-in `power1.out`, fade-out `power1.in`, spin/move `power2.inOut`, script `linear`. |
+| `deg?` | `number` | spin: signed degrees, clockwise positive (`720` = two turns). |
+| `dx?`, `dy?` | `number` | move: slide px, from wherever the element is when the move starts (moves chain). |
+| `fromDx?`, `fromDy?` | `number` | fade-in: start this far away and travel home while fading. |
+| `keys?` | `AnimKeyframe[]` | Keyframes over the effect's progress: `{ at: 0..1, dx?, dy?, deg?, opacity?, ease? }` — values mean what the type means; `ease` shapes the segment arriving at the keyframe. |
+| `script?`, `params?` | `string`, `Record<string, number\|string\|boolean>` | script: a key of `doc.scripts` (`meta.kind: 'effect'`) and its parameter values. |
+
+- **Effects accumulate**: after a move or a spin the element stays there for
+  every later click. An element whose FIRST effect is an entrance starts
+  hidden.
+- **Spins and morphs**: the morph out of a slide sees a spin's angle reduced
+  to −180..180, so a gear left at 720° does not unwind two turns.
+- An effect UI cannot fully draw (keyframes, unknown keys) is shown as
+  "custom" in the editor, and editing its timing never drops those parts.
+
+### `Ease`
+
+A preset name — `linear`, `power1|2|3.in|out|inOut`, `sine.in|out|inOut`,
+`ease`, `ease-in`, `ease-out`, `ease-in-out`, `back.in|out|inOut` — or a CSS
+cubic-bezier as four numbers `[x1, y1, x2, y2]` (x in 0..1; y may overshoot).
+
+---
+
+## The deck's code: `doc.scripts` (FORK)
+
+```json
+"scripts": {
+  "hop":      { "src": "export const meta = { kind: 'effect', drives: ['y'], params: { amp: { type: 'number', default: 40 } } }\nexport default (p, base, params) => ({ y: base.y - params.amp * Math.sin(p * Math.PI) })" },
+  "pendulum": { "src": "export const meta = { kind: 'canvas' }\nexport default function draw(g, ctx) { /* … */ }" }
+}
+```
+
+Each entry is one ES module (≤ 256 KB; names are letters, digits, `-`, `_`,
+up to 64 — they are also file names). It exports `meta` and a default
+function:
+
+- **`kind: 'effect'`** — a script effect's motion:
+  `(p, base, params, ctx) => partialFrame`. `p` is the eased progress
+  (0..1), `base` the element's frame from every effect before this one
+  (`{ x, y, w, h, rotation, opacity, scale, fill?, color? }`, slide px and
+  degrees), `ctx` `{ t, duration, click, el: {w,h}, slide: {w,h}, random(),
+  noise(x), lerp(), clamp() }`. Return only what changes; `meta.drives` lists
+  which keys it may change (absent = any of x, y, rotation, scale, opacity,
+  fill, color).
+- **`kind: 'canvas'`** — a code canvas's drawing: `(g, ctx) => void`, `g` a
+  2D context sized to the element, `ctx` `{ click, t, params, width, height,
+  dpr, random(), noise(x), lerp(), clamp() }` — `t` is the seconds since the
+  current click began. `meta.duration` (seconds, or `{ "<click>": seconds }`)
+  holds the last frame once reached.
+- **`meta.params`** declares parameters — `{ name: { type: 'number' |
+  'select' | 'boolean' | 'color' | 'text', default, min?, max?, step?,
+  options?, label?, unit? } }` — which the editor turns into controls.
+
+**Determinism is enforced**: inside the sandbox `Math.random` is seeded per
+effect (or canvas), and `Date.now`/`performance.now` read `0`. Functions
+must be pure in their inputs — the host asks for any moment, in any order
+(scrubbing, ←, the morph's end state). Script effects are evaluated ahead of
+time at 120 samples a second and interpolated.
+
+**The boundary** (reference runtime): a Worker inside an
+`<iframe sandbox="allow-scripts">` (opaque origin: no cookies, storage, or
+reach into the page) whose document carries `Content-Security-Policy:
+default-src 'none'` (no fetch, no sockets, no imports from anywhere but
+blob:). A watchdog terminates a script that overruns its deadline. A viewer
+can switch deck code off (a per-browser preference, never in the file):
+canvases then show their posters and script effects play as their base. See
+docs/DECISIONS.md (FORK, code layer) for the trust model.
+
+`node scripts/deck-code.mjs extract deck.bento.html` writes `deck.json` plus
+one `scripts/<name>.js` per entry; `pack` puts them back.
 
 ---
 
@@ -329,7 +448,8 @@ JSON in the block, so the splice contract holds.
 2. Element **ids are identity** — morph, states, and links all key off them.
    Generators must emit deterministic ids.
 3. The data-block JSON stays `<`-escaped; text HTML and chart options stay pure
-   data (no functions, sanitized HTML) — a document can never smuggle code.
+   data (no functions, sanitized HTML) — no rendered field is ever evaluated.
+   Code lives only in `doc.scripts` (FORK) and runs only in the sandbox.
 4. Asset references are `asset:` keys into `doc.assets`; a self-contained file
    fetches nothing external at view time.
 5. Motion paths are stored **relative** to the element's rest position; the

@@ -12112,3 +12112,21 @@ canvas, thumbnails, the show, print and the file's preview all carry it.
   the fork's strings are in the catalogs yet.
 
 Rigs: scripts/test-slides-bgimage.ts (bundled), scripts/test-slides-bgimage-browser.mjs.
+
+## 2026-10-28 — FORK: background pictures keep 4K; picture elements keep 2560
+
+Measured presenting at 4K (3840×2160 at 100% and at 150% scaling): the slide
+fills the screen, text and vector content are sharp (Chrome rasters the
+scaled slide at full resolution), and live code canvases already draw at the
+on-screen scale (showcode passes `devicePixelRatio × deck.getScale()`, capped
+at 3 — measured: a 4px rod is 12 solid device px with no soft edge). The one
+loss was a background picture stored at the 2560 insert cap and stretched
+1.5×. A background is the whole slide by definition, so the panel now shrinks
+it with `maxEdge: BACKGROUND_MAX_EDGE` (3840 — measured: 3840×2160 stored,
+3840×2160 shown). Picture ELEMENTS keep 2560: most are a fraction of the
+slide, a photo at 3840 is roughly twice the bytes in every save, and
+"Replace file (original size)…" already keeps any one picture at full
+resolution. The shrink still keeps an original that re-encoding cannot make
+20% smaller, so a picture can exceed the cap — that is the vanilla rule.
+Code-canvas stills (posters) stay at 1×: they show in the editor, thumbnails
+and a show with deck code off, not in a normal show.

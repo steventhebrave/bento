@@ -24,6 +24,8 @@
 //   6. the show paints it, filling the slide
 //   7. "Remove" takes it off one slide; "Remove from all slides" off every
 //      one, and the next save drops its bytes
+//   8. a picture bigger than 4K is stored at exactly 3840×2160 (the
+//      background cap; picture elements keep 2560)
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 import { deflateSync, crc32 } from 'node:zlib'
 import { decodePng } from './lib/present-probe.mjs'
@@ -190,6 +192,27 @@ d = await model()
 ok(d.slides.every((s) => !s.backgroundImage), 'and it takes the picture off every slide')
 const after = JSON.parse((await page.evaluate(() => window.bento.serialize())).match(/<script[^>]*id="bento-doc"[^>]*>([\s\S]*?)<\/script>/)[1])
 ok(!after.assets?.[key], 'the next save drops its bytes')
+
+console.log('\na picture bigger than 4K')
+// 4800×2700, more than 4K: stored at 4K UHD exactly (the background cap), not
+// at the 2560 that picture elements get — measured by decoding what is stored.
+// It has to look like a PHOTO (noise): the shrink keeps the original whenever
+// re-encoding saves under 20%, and a synthetic pattern compresses so well as
+// PNG that its 4K version was not smaller.
+let seed = 7
+const noise = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648 * 60
+const BIG = png(4800, 2700, (x, y) => [x / 20 + noise(), y / 12 + noise(), 120 + noise()])
+await page.keyboard.press('Escape')
+const [bigChooser] = await Promise.all([page.waitForEvent('filechooser'), (await panelButton('choose')).click()])
+await bigChooser.setFiles({ name: 'big.png', mimeType: 'image/png', buffer: BIG })
+await page.waitForFunction(() => !!window.bento.doc.slides[0].backgroundImage, null, { timeout: 60000 })
+const stored = await page.evaluate(() => new Promise((res) => {
+  const d = window.bento.doc, img = new Image()
+  img.onload = () => res([img.naturalWidth, img.naturalHeight])
+  img.onerror = () => res(null)
+  img.src = d.assets[d.slides[0].backgroundImage.slice(6)]
+}))
+ok(JSON.stringify(stored) === '[3840,2160]', `stored at 4K UHD: ${stored?.join('×')}`)
 
 ok(errors.length === 0, 'no page errors', errors)
 await browser.close()

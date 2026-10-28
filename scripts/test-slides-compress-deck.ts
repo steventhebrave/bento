@@ -91,7 +91,13 @@ ok(/if \(!run\.shrunk\.length\)[\s\S]*?this\.toast\(/.test(fn) && fn.indexOf('if
 ok(/createDialog\(\{ title: t\('Compress pictures in this deck'\)/.test(fn), 'the confirmation is the kernel dialog')
 const cd = read('slides/src/editor/compressdeck.ts')
 ok(/shrinkImageFile\(blob, \{ force: true, skipLossyAtCap: true \}\)/.test(cd), 'the deck pass forces the shrink regardless of the insert preference, and skips lossy pictures already within the cap')
-ok(/opts\.skipLossyAtCap && \/\^image\\\/\(jpeg\|webp\)\$\/i\.test\(file\.type\) && Math\.max\(bmp\.width, bmp\.height\) <= MAX_EDGE/.test(read('slides/src/editor/shrink.ts')), 'shrinkImageFile keeps a JPEG/WebP at or under 2560 px when asked — a second pass is a no-op, no generation loss')
+// FORK: the skip compares against the call's cap, which is MAX_EDGE unless a
+// caller asks for another (only the background picture does: 4K) — and the
+// deck pass asks for none
+const shrinkSrc = read('slides/src/editor/shrink.ts')
+ok(/const cap = opts\.maxEdge \?\? MAX_EDGE/.test(shrinkSrc)
+  && /opts\.skipLossyAtCap && \/\^image\\\/\(jpeg\|webp\)\$\/i\.test\(file\.type\) && Math\.max\(bmp\.width, bmp\.height\) <= cap/.test(shrinkSrc)
+  && !/maxEdge/.test(cd), 'shrinkImageFile keeps a JPEG/WebP at or under 2560 px when asked — a second pass is a no-op, no generation loss')
 ok(/if \(!opts\.force && !shrinkEnabled\(\)\)/.test(read('slides/src/editor/shrink.ts')), 'and shrinkImageFile honours `force`')
 ok(/Compress pictures in this deck…/.test(editor.slice(editor.indexOf('private openAbout('), editor.indexOf('private async compressDeckPictures('))), 'the entry lives in the About dialog')
 

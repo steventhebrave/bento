@@ -18,7 +18,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { classify, sampleGrid, fitEdge, worthIt, untouchable, MAX_EDGE, MIN_GAIN, GRAPHIC_COLOURS, GRAPHIC_FLAT, shrinkNote, fmtBytes } from '../slides/src/editor/shrink.ts'
+import { classify, sampleGrid, fitEdge, worthIt, untouchable, MAX_EDGE, BACKGROUND_MAX_EDGE, MIN_GAIN, GRAPHIC_COLOURS, GRAPHIC_FLAT, shrinkNote, fmtBytes } from '../slides/src/editor/shrink.ts'
 
 let failures = 0
 let checks = 0
@@ -78,6 +78,10 @@ ok(JSON.stringify(fitEdge(3024, 4032)) === JSON.stringify({ width: 1920, height:
 ok(JSON.stringify(fitEdge(1000, 500)) === JSON.stringify({ width: 1000, height: 500 }), '1000×500 stays (never upscaled)')
 ok(JSON.stringify(fitEdge(2560, 100)) === JSON.stringify({ width: 2560, height: 100 }), `exactly ${MAX_EDGE} stays`)
 ok(fitEdge(10000, 10).height === 3, 'a very wide strip keeps at least a row')
+// FORK: a background picture covers the whole slide, so it keeps 4K UHD
+ok(BACKGROUND_MAX_EDGE === 3840, 'background pictures cap at 3840 (4K UHD)')
+ok(JSON.stringify(fitEdge(5120, 2880, BACKGROUND_MAX_EDGE)) === JSON.stringify({ width: 3840, height: 2160 }), '5K 16:9 → 3840×2160 at the background cap')
+ok(JSON.stringify(fitEdge(3840, 2160, BACKGROUND_MAX_EDGE)) === JSON.stringify({ width: 3840, height: 2160 }), 'a 4K picture keeps every pixel at the background cap')
 
 console.log('\nuntouchable formats\n')
 ok(untouchable('image/svg+xml') && untouchable('image/gif') && untouchable('IMAGE/GIF'), 'svg and gif are left as they came')

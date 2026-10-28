@@ -2,7 +2,10 @@
 // Copyright (c) 2026 The Bento authors
 /**
  * Photos shrink at insert. A phone photo is 4000 px wide and several MB; a
- * slide is 1280 px wide and a 4K projector shows it at 2560. Every insert
+ * slide is 1280 px wide and a 4K screen shows it at 3840 — but a picture
+ * element is usually a fraction of the slide, so 2560 covers it (FORK: a
+ * BACKGROUND picture is the whole slide and keeps 3840 — BACKGROUND_MAX_EDGE;
+ * the 4K note in this sentence used to read "shows it at 2560"). Every insert
  * path (file picker, paste, panel replace) runs the picture through here, so
  * the deck grows by hundreds of KB, not megabytes — the biggest lever left on
  * file size after #447/#476 (a save drops what nothing refers to) and #468
@@ -32,6 +35,15 @@
 import { lsGet, lsSet } from '../../../kernel/src/storage.ts'
 
 export const MAX_EDGE = 2560
+/**
+ * FORK: a slide's BACKGROUND picture keeps up to 4K UHD. It always covers the
+ * whole slide, and a 1280-wide slide on a 3840-wide screen is three device
+ * pixels per slide pixel — at MAX_EDGE it was stretched 1.5× (measured: a
+ * 2560×1440 picture painted across 3840×2160). Pictures ELEMENTS keep
+ * MAX_EDGE: most are a fraction of the slide, and "Replace file (original
+ * size)…" keeps any one at full resolution.
+ */
+export const BACKGROUND_MAX_EDGE = 3840
 /** The re-encoded result must be at least this much smaller, or the original stays. */
 export const MIN_GAIN = 0.2
 /** Below this many distinct 5-bit colours in the sample, an image reads as a graphic (a logo, a chart). */
@@ -145,7 +157,8 @@ const kept = (dataUrl: string, before: number, width: number, height: number, re
  * The whole thing: decode, cap, classify, encode, compare. Always resolves —
  * anything that cannot be decoded is stored as it came, the way it always was.
  */
-export async function shrinkImageFile(file: Blob, opts: { force?: boolean; skipLossyAtCap?: boolean } = {}): Promise<ShrinkResult> {
+export async function shrinkImageFile(file: Blob, opts: { force?: boolean; skipLossyAtCap?: boolean; maxEdge?: number } = {}): Promise<ShrinkResult> {
+  const cap = opts.maxEdge ?? MAX_EDGE
   const before = file.size
   const original = await readDataUrl(file)
   // `force`: the explicit "Compress pictures in this deck…" action — the
@@ -160,11 +173,11 @@ export async function shrinkImageFile(file: Blob, opts: { force?: boolean; skipL
   // smaller every time and worse every time (generation loss), so the 20%
   // rule alone would let a second pass "shrink" the first pass's output.
   // Once is the rule: such a picture is kept as it is.
-  if (opts.skipLossyAtCap && /^image\/(jpeg|webp)$/i.test(file.type) && Math.max(bmp.width, bmp.height) <= MAX_EDGE) {
+  if (opts.skipLossyAtCap && /^image\/(jpeg|webp)$/i.test(file.type) && Math.max(bmp.width, bmp.height) <= cap) {
     const { width: w0, height: h0 } = bmp; bmp.close()
     return kept(original, before, w0, h0, 'no gain')
   }
-  const { width, height } = fitEdge(bmp.width, bmp.height)
+  const { width, height } = fitEdge(bmp.width, bmp.height, cap)
   const canvas = document.createElement('canvas')
   canvas.width = width; canvas.height = height
   const ctx = canvas.getContext('2d')

@@ -224,8 +224,8 @@ names provisional.
 - **Background picture (FORK, `Slide.backgroundImage`)** — `asset:<key>` or `data:image/…`
   (never a URL), drawn by renderSlide as the surface's FIRST child, an `<img class="bento-slide-bg">`
   with `object-fit: cover` + `pointer-events: none`: always fills, crops, never stretches; no fit
-  setting by design. Panel: slide section "Background image" (Choose/Replace through shrink →
-  internAsset, Remove, "Apply to all slides"/"Remove from all slides" — one undo each). A new slide
+  setting by design. Panel: slide section "Background image" (Choose/Replace through shrink at the
+  4K cap `BACKGROUND_MAX_EDGE` 3840 — picture elements keep 2560 — → internAsset, Remove, "Apply to all slides"/"Remove from all slides" — one undo each). A new slide
   takes it only while every slide shares one (`deckBackgroundImage`). Anything that enumerates
   asset references must include it (assets.ts, clipboard.ts, preview.ts do). Rigs:
   test-slides-bgimage.ts (bundled), test-slides-bgimage-browser.mjs.

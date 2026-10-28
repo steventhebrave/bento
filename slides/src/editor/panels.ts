@@ -18,7 +18,7 @@ import { fontFaceDescriptors } from '../fontmeta'
 import { CODE_SCOPES, DEFAULT_CODE_COLORS } from '../code'
 import { TIPS } from '../tips'
 import { DATE_PRESETS, TIME_PRESETS, OTHER_FIELDS, formatDate } from '../datefmt'
-import { shrinkImageFile, shrinkNote, fmtBytes } from './shrink'
+import { shrinkImageFile, shrinkNote, fmtBytes, BACKGROUND_MAX_EDGE } from './shrink'
 import { revealInOrder, revealTogether, removeReveal, readingOrder, type StepPatch } from './reveal'
 import { usesAnim } from '../animseq'
 import { effectDef } from '../effects/index.ts'
@@ -214,7 +214,8 @@ export class PropsPanel {
 
   /**
    * FORK: the slide's background picture (model.ts Slide.backgroundImage).
-   * Choose/Replace go through the image shrink path into doc.assets, so every
+   * Choose/Replace go through the image shrink path (capped at 4K —
+   * BACKGROUND_MAX_EDGE) into doc.assets, so every
    * slide showing it points at ONE stored copy. It always fills the slide —
    * cropped, never stretched — and deliberately has no fit setting. Below the
    * row, one deck-wide verb: "Apply to all slides" points every slide at this
@@ -246,7 +247,7 @@ export class PropsPanel {
       input.addEventListener('change', () => {
         const file = input.files?.[0]
         if (!file) return
-        void shrinkImageFile(file).then((r) => {
+        void shrinkImageFile(file, { maxEdge: BACKGROUND_MAX_EDGE }).then((r) => {
           if (!/^data:image\//i.test(r.dataUrl)) { this.toast(t('That file is not a picture')); return }
           const note = shrinkNote(r)
           if (note) this.toast(note.photo ? t('Photo stored at {px} px — {before} → {after}', note.vars) : t('Image stored at {px} px — {before} → {after}', note.vars))

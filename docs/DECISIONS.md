@@ -12130,3 +12130,20 @@ resolution. The shrink still keeps an original that re-encoding cannot make
 20% smaller, so a picture can exceed the cap — that is the vanilla rule.
 Code-canvas stills (posters) stay at 1×: they show in the editor, thumbnails
 and a show with deck code off, not in a normal show.
+
+## 2026-10-28 — FORK: decks point agents at the fork's own guide and schema
+
+Every shell carries a note for AI agents (scripts/postbuild-compress.mjs
+`SLIDES_TOOLING`), and every saved deck's JSON opens with `"$schema"`
+(slides/src/schema.ts `SCHEMA_URL`). Both pointed at bento.page — upstream's
+guide, which describes none of this fork's additions, and upstream's schema,
+which closes slides and elements (`additionalProperties: false`) without
+`anim`, `backgroundImage`, `anchor` or `canvas`, so a validator following a
+fork deck's own pointer would reject it. Both now point at this repository
+(public): docs/agents.md and the generated schema/slides.json on branch
+`ccr-6ab0e2f2-nxmnan`, where the fork's work lives (main does not have it
+yet). The note also lists the fork's additions itself, so an agent with only
+the file — no network — still learns them, and names `deck-code.mjs`
+extract/pack as an OPTIONAL route: editing the JSON block in place stays
+valid. When the fork's work moves to main, the three URLs change together;
+scripts/test-slides-schema.ts pins them.

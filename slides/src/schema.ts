@@ -26,7 +26,15 @@ import { FORMAT, FORMAT_VERSION } from './model'
 import { MODEL_KEYS } from './modelkeys.generated'
 import { ELEMENT_CHECKS, SLIDE_CHECKS, REQUIRED_KEYS, LIMITS, EASE_CHECK, objectSchema, type JsonSchema } from './untrusted'
 
-export const SCHEMA_URL = 'https://bento.page/schema/slides.json'
+/**
+ * FORK: this build's schema, as published from the fork's repository (the
+ * generated schema/slides.json there). Upstream's, at
+ * https://bento.page/schema/slides.json, closes slides and elements
+ * (additionalProperties: false) without the fork's fields — `anim`,
+ * `backgroundImage`, `anchor`, `canvas` — so a fork deck pointing there would
+ * fail any validator that followed its own `$schema`.
+ */
+export const SCHEMA_URL = 'https://raw.githubusercontent.com/steventhebrave/bento/ccr-6ab0e2f2-nxmnan/schema/slides.json'
 
 /**
  * The saved JSON names its schema as its FIRST key, so a reader with only

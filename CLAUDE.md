@@ -711,6 +711,11 @@ names provisional.
   (store.replaceDoc, undoable); `window.bento.loadDoc(json)` for scripts; the
   shell carries a Tooling-note comment pointing AIs at #bento-doc + the API.
   Agent harnesses edit files in place; chat AIs round-trip the JSON.
+  FORK: that note (scripts/postbuild-compress.mjs SLIDES_TOOLING) and every
+  saved deck's `$schema` (schema.ts SCHEMA_URL) point at THIS repository —
+  docs/agents.md and schema/slides.json on branch ccr-6ab0e2f2-nxmnan — not
+  bento.page, whose schema rejects the fork's fields. The three URLs (note's
+  guide, note's schema, SCHEMA_URL) move TOGETHER; test-slides-schema pins them.
 
 ## Commands
 

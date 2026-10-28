@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://bento.page/schema/slides.json",
+  "$id": "https://raw.githubusercontent.com/steventhebrave/bento/ccr-6ab0e2f2-nxmnan/schema/slides.json",
   "title": "bento/slides document",
   "description": "The #bento-doc JSON of a Bento Slides file, generated from the app's validation tables. Guide: https://bento.page/agents.md",
   "x-bento-version": "1.2.10",

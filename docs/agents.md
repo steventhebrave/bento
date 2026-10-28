@@ -5,6 +5,14 @@ guide matches the bento/slides shell of the same version. A deck's `#bento-doc`
 JSON is always the source of truth — if it was written by a newer shell it may
 carry features beyond this guide; unknown keys are ignored, never fatal.
 
+> **This is a fork's guide.** It describes the Bento Slides build at
+> [github.com/steventhebrave/bento](https://github.com/steventhebrave/bento),
+> which adds to upstream Bento: animation lists (`slide.anim`), deck code
+> (`doc.scripts` + `canvas` elements), element anchors (`anchor`) and slide
+> background pictures (`backgroundImage`). Decks made with it point here from
+> the note at the top of the file. The upstream guide at bento.page describes
+> none of these.
+
 > **Bento is a suite.** Slides is the first app; **Spaces**
 > (`bento/spaces`, notes and wiki) ships alongside it. **Dash** (`bento/dash`,
 > data and sheets) is in development, and a word processor is planned. Each ships
@@ -15,8 +23,8 @@ carry features beyond this guide; unknown keys are ignored, never fatal.
 > format is one you have no guide for, don't guess at its shape.
 
 *Drop this file into your context (or point your harness at it) and you can
-author and edit Bento presentations directly. Also published at
-[bento.page/agents.md](https://bento.page/agents.md). For **Claude Code**,
+author and edit Bento presentations directly. Upstream's version, without
+this fork's additions, is at [bento.page/agents.md](https://bento.page/agents.md). For **Claude Code**,
 install the packaged **bento-slides** skill once and it triggers automatically
 (or via `/bento-slides`) — it can even download the latest Bento app itself,
 so a deck can be authored from an empty folder:*

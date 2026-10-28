@@ -305,17 +305,43 @@ const SLIDES_TOOLING = `<!--
   ════════════════════════════════════════════════════════════════════════
   AI AGENTS / TOOLING — READ THIS BEFORE EDITING THIS DECK
   ════════════════════════════════════════════════════════════════════════
-  Full authoring guide (schema + copy-paste snippets): https://bento.page/agents.md
+  This deck was made with a FORK of Bento Slides. It adds features the
+  upstream docs at bento.page do not describe (below). Authoring guide for
+  THIS build (schema, recipes, the fork's additions):
+    https://github.com/steventhebrave/bento/blob/ccr-6ab0e2f2-nxmnan/docs/agents.md
+  (docs/agents.md in that repository; docs/format.md is the field reference.)
 
   THE MECHANICS
   · The document is the ONE script block of type "application/bento+json",
     id "bento-doc", below — plain readable JSON. Edit THAT block in place;
     never regenerate the whole file. Escape every "<" in the JSON as \\u003c.
-  · The base64 blocks near the end are the DEFLATE-compressed app runtime
-    (open source, https://bento.page) — no user content, leave them alone.
+  · The encoded blocks near the end are the DEFLATE-compressed app runtime
+    (open source: the repository above) — no user content, leave them alone.
   · In a running file, window.bento exposes { doc, serialize(), loadDoc(json),
-    comments(), updates, i18n }. In the app UI: Save → Copy / Replace JSON.
-  · Schema: https://bento.page/schema/slides.json (= window.bento.schema()); agent index: https://bento.page/llms.txt
+    comments(), schema(), code }. In the app UI: Save → Copy / Replace JSON.
+  · Schema: window.bento.schema() in a running file, or the "$schema" every
+    saved deck opens with:
+    https://raw.githubusercontent.com/steventhebrave/bento/ccr-6ab0e2f2-nxmnan/schema/slides.json
+    Not upstream's at bento.page: that one rejects the fork's fields.
+  · Optional, with the repository checked out: node scripts/deck-code.mjs
+    extract <deck.bento.html> <dir>  writes <dir>/deck.json plus one
+    <dir>/scripts/<name>.js per deck script; edit those, then
+    node scripts/deck-code.mjs pack <dir> <deck.bento.html>  (it refuses a
+    script that does not parse). Editing the block in place is always valid.
+
+  WHAT THIS FORK ADDS (details and examples in the guide above)
+  · slide.anim — the slide's animation list, played click by click. Each
+    effect: {id, el, type, trigger: click|with|after, delay, duration, ease};
+    types appear, disappear, fade-in, fade-out, move, spin, script. A slide
+    with "anim" ignores the older fx.step reveal fields.
+  · doc.scripts {name: {src}} + "canvas" elements {script, params, poster} —
+    deck code (ES modules), run ONLY in a sandbox with no network: a script
+    effect animates an element, a canvas draws a picture per frame.
+  · element "anchor": [fx, fy] — the pivot (fractions of the box) that spin
+    turns about and the editor rotates and resizes about. Absent = centre.
+  · slide "backgroundImage": "asset:<key>" — a picture behind everything,
+    filling the slide (cropped, never stretched). Store it once in "assets".
+  · per-slide "morphSeconds" / "morphEase"; any ease may be [x1,y1,x2,y2].
 
   MAKE A GREAT DECK, NOT JUST A CORRECT ONE
   Bento's whole point is motion + interactivity. A wall of text slides wastes

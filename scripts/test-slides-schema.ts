@@ -113,7 +113,8 @@ console.log('one source\n')
 const built = buildSchema(version)
 const file = JSON.parse(read('schema/slides.json')) as J
 ok(JSON.stringify(built) === JSON.stringify(file), 'schema/slides.json is byte-for-byte what buildSchema(version) returns (build-schema.mjs --check pins it in CI too)')
-ok(file.$id === SCHEMA_URL && file.$id === 'https://bento.page/schema/slides.json', `$id is the published URL (${file.$id})`)
+// FORK: the fork's own schema, published from its repository (upstream's rejects the fork's fields)
+ok(file.$id === SCHEMA_URL && file.$id === 'https://raw.githubusercontent.com/steventhebrave/bento/ccr-6ab0e2f2-nxmnan/schema/slides.json', `$id is the published URL (${file.$id})`)
 ok(file['x-bento-version'] === version, `stamped with the shell version ${version}`)
 ok(existsSync(join(root, `schema/slides-${version}.json`)), 'a version-pinned twin exists')
 const mainSrc = read('slides/src/main.ts')
@@ -172,7 +173,7 @@ console.log('\nthe saved JSON opens with its pointer\n')
   const stamped = stampSchema(live)
   ok(Object.keys(stamped)[0] === '$schema' && stamped.$schema === SCHEMA_URL, 'stampSchema puts $schema FIRST, with the published URL')
   ok(!('$schema' in live), 'the input object is untouched (a new object, not a mutation)')
-  ok(JSON.stringify(stamped).startsWith('{"$schema":"https://bento.page/schema/slides.json",'), 'serialized, the file starts with the pointer (50 B)')
+  ok(JSON.stringify(stamped).startsWith(`{"$schema":"${SCHEMA_URL}",`), `serialized, the file starts with the pointer (${SCHEMA_URL.length + 14} B)`)
   const again = parseDoc(JSON.stringify(stamped))
   ok(!!again && !('$schema' in again), 'load → save → load: the live document never carries it')
   const facade = read('slides/src/save.ts')
@@ -188,9 +189,11 @@ for (const dir of ['slides/src', 'kernel/src']) {
       if (f.isDirectory()) walk(p)
       else if (/\.(ts|css|html)$/.test(f.name) && !/\.generated\./.test(f.name)) {
         const src = readFileSync(join(root, p), 'utf8')
-        if (!src.includes('bento.page/schema')) continue
+        // FORK: the pointer is the fork's own schema URL; upstream's still appears in comments
+        const isUrl = (l: string) => l.includes('bento.page/schema') || l.includes(SCHEMA_URL)
+        if (!src.split('\n').some(isUrl)) continue
         carriers.push(p)
-        const lines = src.split('\n').filter((l) => l.includes('bento.page/schema'))
+        const lines = src.split('\n').filter(isUrl)
         ok(!lines.some((l) => /fetch\(|import\(|href=|src=|new URL\(/.test(l)), `${p}: the URL is text only (${lines.length} line${lines.length === 1 ? '' : 's'})`)
       }
     }
@@ -199,7 +202,10 @@ for (const dir of ['slides/src', 'kernel/src']) {
 }
 ok(carriers.length > 0 && carriers.includes('slides/src/schema.ts'), `the URL appears as text in: ${carriers.join(', ')}`)
 const tooling = read('scripts/postbuild-compress.mjs')
-ok(tooling.includes('https://bento.page/schema/slides.json') && tooling.includes('https://bento.page/llms.txt') && tooling.includes('window.bento.schema()'), 'the Tooling comment names the URL, schema() and llms.txt')
+// FORK: the note names THIS build's schema and guide (the fork's repository),
+// not upstream's bento.page ones, whose schema rejects the fork's fields
+ok(tooling.includes(SCHEMA_URL) && tooling.includes('window.bento.schema()') && tooling.includes('https://github.com/steventhebrave/bento/blob/ccr-6ab0e2f2-nxmnan/docs/agents.md'),
+  'the Tooling comment names the fork\'s schema URL, schema() and the fork\'s agent guide')
 const llms = read('site-src/llms.txt')
 ok(/^# /.test(llms) && llms.includes('https://bento.page/schema/slides.json') && llms.includes('agents.md'), 'llms.txt exists with the schema and the agent guide')
 ok(read('scripts/release.mjs').includes("'llms.txt'") && read('scripts/release.mjs').includes("'schema'"), 'release.mjs stages llms.txt and schema/ into the site')

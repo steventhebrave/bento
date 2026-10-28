@@ -162,7 +162,8 @@ only the rendered output is resolved, so numbering re-flows when slides move.
 ### `shape`
 
 `type: "shape"` — `shape: rect | ellipse | triangle | arrow | line | path`,
-plus `fill`, `stroke`, `strokeWidth`, `radius` (rect corner). Options:
+plus `fill`, `stroke`, `strokeWidth`, `radius` (rect corner; drawn at most half
+the shorter side, so a bigger one makes a pill). Options:
 
 - `fillGradient?`: `{ angle, stops: [{ at: 0..1, color }] }` — linear gradient;
   when set it wins over `fill` (kept as the solid fallback).

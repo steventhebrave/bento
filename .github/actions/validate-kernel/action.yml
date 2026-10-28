@@ -549,3 +549,11 @@ runs:
       # state for one frame. dt is clamped at 0, in the loop and in tick().
       shell: bento-step {0}
       run: node scripts/test-anim-clock.ts
+
+    - name: A rect's corner radius never stretches
+      # SVG clamps rx and its auto ry each to its own side, so a radius bigger
+      # than half the shorter side drew elliptical corners — a pointed tip on
+      # a thin rect (the default 12 on a 4 px rod). Clamped to half the
+      # shorter side, it makes a pill; radii that fit are unchanged.
+      shell: bento-step {0}
+      run: node scripts/test-shape-radius.ts

@@ -205,7 +205,12 @@ export function shapeSvg(el: ShapeSpec): SVGSVGElement {
       node.setAttribute('y', String(inset))
       node.setAttribute('width', String(Math.max(w - sw, 0)))
       node.setAttribute('height', String(Math.max(h - sw, 0)))
-      if (el.radius) node.setAttribute('rx', String(el.radius))
+      // At most half the shorter side, so a radius too big for the box makes
+      // a pill (as CSS, PowerPoint and Figma do). SVG clamps rx to half the
+      // width and its auto ry to half the HEIGHT, separately: an unclamped
+      // 12 on a 4 px rod drew 2×12 elliptical corners, a stretched point.
+      const r = Math.min(el.radius ?? 0, Math.max(w - sw, 0) / 2, Math.max(h - sw, 0) / 2)
+      if (r > 0) node.setAttribute('rx', String(r))
       break
     }
     case 'ellipse': {

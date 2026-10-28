@@ -226,7 +226,7 @@ export interface ShapeElement extends ElementBase {
   fillGradient?: GradientFill
   stroke: string
   strokeWidth: number
-  /** corner radius, rect only */
+  /** corner radius, rect only; at most half the shorter side when drawn (bigger = a pill) */
   radius: number
   /** arrow only (v1.1.1, #304): 2 = a head at both ends. Absent = one head.
    *  A property, not a shape kind, on purpose: a shipped shell's renderer

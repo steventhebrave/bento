@@ -15,7 +15,8 @@ export const meta = {
 
 export default function draw(g, ctx) {
   const { width: w, params } = ctx
-  // the same geometry as the slide's rod (x 638–642, y 180) and bob (⌀100)
+  // the same geometry as the slide's rod (x 638–642, pivot y 180, its round top
+  // 2 px above it like this line's cap) and bob (⌀100)
   const pivot = { x: w / 2, y: 20 }
   const L = 330
   const omega = Math.sqrt(9.81 / params.length)

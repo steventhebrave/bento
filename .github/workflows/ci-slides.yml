@@ -168,6 +168,13 @@ jobs:
         # a slide arrives fully played; legacy fx.step still reveals; clicker
         # keys and the speaker window drive clicks; reduced motion lands at once.
         run: node scripts/test-slides-anim-present-browser.mjs
+      - name: Animation pane in Chromium
+        # The Animate tab with trusted mouse input: rows by click, selection
+        # shared with the canvas, Add animation, bar drags for delay and
+        # duration, multi-select, grip reorder, the move handle (Shift snaps
+        # 15°), scrub painting the canvas, legacy conversion on first edit,
+        # delete dropping effects.
+        run: node scripts/test-slides-anim-pane-browser.mjs
       - name: One field look in Chromium
         # Every chrome text field, select and textarea (each element kind's
         # panel, About, the save-as dialogs, Share, comments) has the shared

@@ -66,6 +66,11 @@ const AUDITED: Record<string, Bg> = {
   '.ed-btn-armed': 'chrome-tint-22',           // the armed comment tool, on the topbar
   '.ed-lang-on::after': 'surface',             // the language menu's ✓
   '.ed-comment-me:hover': 'surface',           // your own name in a comment thread
+  // the animation pane's row glyphs (a selected row adds an 18% slate tint —
+  // computed 5.54:1 light, 6.89:1 dark on that tint — above 4.5 either way)
+  '.ed-anim-trig-click': 'surface',            // the "on click" dot
+  '.ed-anim-kind-emphasis::before': 'surface', // the spin glyph
+  '.ed-anim-custom': 'surface',                // the "custom" tag
   '.ed-comment-hl.slide': 'over-slide',        // "SLIDE" label on a whole-slide comment
   '.ed-comment-hl.pin': 'over-slide',          // coordinates beside a point comment
 }

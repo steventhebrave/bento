@@ -599,3 +599,10 @@ runs:
       # one; compact form, schema and validate() know the fields.
       shell: bento-step {0}
       run: node scripts/test-slides-anim-format.ts
+
+    - name: Legacy reveals read as an animation list rig
+      # fx.enter / fx.step converted to slide.anim reproduce the legacy
+      # runtime's delays, offsets, durations and eases number for number;
+      # motion-path and hover elements appear; step gaps collapse.
+      shell: bento-step {0}
+      run: node scripts/test-slides-anim-legacy.ts

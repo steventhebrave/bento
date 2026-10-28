@@ -20,9 +20,9 @@
 //      editor with the deck's slides and no gate left;
 //   3. the same when only the LAST path (the blob import) can run — the
 //      inline and Function paths refused, as a strict policy refuses them;
-//   4. what this version writes opens again: ⌘S re-saves encrypted, and the
-//      self-update re-splice (updates.build) produces a file with one gate
-//      that unlocks.
+//   4. what this version writes opens again: ⌘S re-saves encrypted and opens
+//      with one gate that unlocks. (FORK: self-update is off, so the re-splice
+//      into a fetched shell — updates.build — must REFUSE, before any fetch.)
 // Mutation: drop the app's stub (or the loader's `locked`) and 1 goes red.
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -132,10 +132,9 @@ try {
       console.log('\nwhat this version writes opens again\n')
       const resaved = await saveDownload(p, () => p.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s'))
       const sha256 = createHash('sha256').update(shell).digest('hex')
-      const updated = await p.evaluate((r) => window.bento.updates.build(r), { url: 'https://rig.test/shell.html', sha256, version: '99.0.0' })
-      const updFile = join(dir, 'updated.bento.html')
-      writeFileSync(updFile, updated)
-      for (const [what, file] of [['the ⌘S re-save', resaved], ['the self-update re-splice', updFile]]) {
+      const refused = await p.evaluate((r) => window.bento.updates.build(r).then(() => '', (e) => String(e?.message ?? e)), { url: 'https://rig.test/shell.html', sha256, version: '99.0.0' })
+      ok(/self-update is turned off/.test(refused), `FORK: the self-update re-splice refuses ("${refused}")`)
+      for (const [what, file] of [['the ⌘S re-save', resaved]]) {
         ok(/bento\/enc/.test(readFileSync(file, 'utf8')), `${what} is still encrypted`)
         const o = await openFile(file)
         const s2 = await state(o.p)

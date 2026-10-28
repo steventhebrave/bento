@@ -54,8 +54,9 @@ export class AnchorHandle {
     host.appendChild(this.layer)
   }
 
-  /** Hide while Moveable drags, turns or sizes the element (the model catches up at the end). */
+  /** Hide while Moveable drags, turns or sizes the element (the model catches up at the end). Called on every move: only a change does anything. */
   setGesture(on: boolean) {
+    if (on === this.hidden) return
     this.hidden = on
     this.layer.style.display = on ? 'none' : ''
     if (!on) this.refresh()

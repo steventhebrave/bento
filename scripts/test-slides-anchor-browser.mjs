@@ -23,6 +23,8 @@
 //      as the pendulum example's gear and canvas do) gets its crosshair at its
 //      centre, not the slide's corner; dragging it stores a real anchor, and
 //      rotating then turns about it
+//   8. the press that selects an element never blinks its new crosshair off
+//      (recorded every frame): it steps aside only once a drag really moves
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 import { boxes, tick } from './lib/present-probe.mjs'
 
@@ -207,6 +209,29 @@ await drag(await centreOf('.moveable-rotation-control'), arc(10, 12, 6))
 g = await el('gear')
 ok(Math.abs(g.rotation) > 20 && near(pointOf(g).x, before.x) && near(pointOf(g).y, before.y),
   `rotating it turns ${g.rotation}° about that corner (anchor at ${pointOf(g).x.toFixed(2)},${pointOf(g).y.toFixed(2)})`)
+
+console.log('\nselecting does not blink the crosshair')
+await page.keyboard.press('Escape')
+await page.waitForTimeout(150)
+ok(await page.evaluate(() => window.bento.selection.length === 0), 'nothing selected to begin with')
+await page.evaluate(() => {
+  window.__seen = []
+  const f = () => {
+    if (!window.__seen) return
+    const h = document.querySelector('.ed-anchor-handle'), layer = document.querySelector('.ed-anchor-layer')
+    window.__seen.push(!!h && getComputedStyle(layer).display !== 'none' ? 1 : 0)
+    requestAnimationFrame(f)
+  }
+  requestAnimationFrame(f)
+})
+const gp = await centreOf('.ed-stage-scale .bento-slide [data-el-id="gear"]') // turned by now: its middle, measured
+await page.mouse.move(gp.x, gp.y)
+await page.mouse.down()
+await page.waitForTimeout(200) // held, as a real click is: dragStart fires on the press
+await page.mouse.up()
+await page.waitForTimeout(150)
+const seen = await page.evaluate(() => { const s = window.__seen; window.__seen = null; return s.join('') })
+ok(await page.evaluate(() => window.bento.selection.join()) === 'gear' && /^0*1+$/.test(seen), `once shown, it stays shown through the click (frames: ${seen.replace(/(.)\1*/g, (m, c) => `${c}×${m.length} `).trim()})`)
 
 console.log('\na spin turns about the anchor in the show')
 await page.evaluate(() => window.bento.anim.setManual(true))

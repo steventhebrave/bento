@@ -338,8 +338,11 @@ export class SlideCanvas {
       (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, lockScroll)
     for (const e of ['dragEnd', 'resizeEnd', 'rotateEnd', 'dragGroupEnd', 'resizeGroupEnd', 'rotateGroupEnd'])
       (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, unlockScroll)
-    // the anchor crosshair steps aside while Moveable moves the element
-    for (const e of ['dragStart', 'resizeStart', 'rotateStart', 'dragGroupStart', 'resizeGroupStart', 'rotateGroupStart'])
+    // the anchor crosshair steps aside while Moveable moves the element — from
+    // its first movement, not its start: the press that selects an element is
+    // also a dragStart, and hiding there blinked the new crosshair off for as
+    // long as the click was held
+    for (const e of ['drag', 'resize', 'rotate', 'dragGroup', 'resizeGroup', 'rotateGroup'])
       (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, () => this.anchorHandle?.setGesture(true))
     for (const e of ['dragEnd', 'resizeEnd', 'rotateEnd', 'dragGroupEnd', 'resizeGroupEnd', 'rotateGroupEnd'])
       (this.moveable as unknown as { on: (e: string, f: () => void) => void }).on(e, () => this.anchorHandle?.setGesture(false))

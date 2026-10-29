@@ -617,6 +617,15 @@ runs:
       shell: bento-step {0}
       run: node scripts/test-slides-anchor.ts
 
+    - name: Saved document layout rig
+      # FORK. A saved deck's #bento-doc is the document on one line, then the
+      # picture data (`assets`) LAST on its own line, so an agent can stop
+      # before it; no pictures = one line, exactly the compact JSON. The
+      # kernel stays compact JSON until an app registers a layout (vanilla's
+      # other apps byte for byte); deck-code.mjs carries an identical copy.
+      shell: bento-step {0}
+      run: node scripts/test-slides-doc-layout.ts
+
     - name: Slide background picture rig
       # FORK. The gate keeps asset: and data:image/ and drops web URLs and
       # non-images; the save keeps (and later prunes) its asset; the

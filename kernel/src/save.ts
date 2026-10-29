@@ -146,6 +146,19 @@ export function registerShellBlocks(fn: () => ShellBlock[], types: string[]): vo
   managedTypes = types
 }
 
+/**
+ * How the document becomes the text of `#bento-doc` in a PLAIN save (an
+ * encrypted or sealed body is ciphertext, whatever its layout). Compact JSON
+ * unless an app registers its own — which must stay JSON that parses back to
+ * the same document. Like registerShellBlocks: call once, at boot. (Slides in
+ * the FORK puts the picture data on its own last line; every other app keeps
+ * the default, byte for byte.)
+ */
+let docText: (doc: KernelDoc) => string = (doc) => JSON.stringify(doc)
+export function registerDocText(fn: (doc: KernelDoc) => string): void {
+  docText = fn
+}
+
 /** Every extra block currently in THIS document (as loaded from disk). */
 export function readShellBlocks(type: string): Array<{ id: string; body: string; el: Element }> {
   return Array.from(document.querySelectorAll(`script[type="${type}"]`)).map((el) => ({
@@ -440,7 +453,7 @@ function writePreview(clone: Document, body: string, doc: KernelDoc): void {
  * PLAIN output — encryption-aware callers use serializeDocInto/serializeAuto.
  */
 export function serializeWith(shell: Document, doc: KernelDoc): string {
-  return serializeBody(shell, JSON.stringify(doc), doc)
+  return serializeBody(shell, docText(doc), doc)
 }
 
 /** The full .bento.html file content with `doc` embedded (plain). */
@@ -675,7 +688,7 @@ export async function decryptEnvelope(env: EncEnvelope, password: string): Promi
 export async function encodeDocBody(doc: KernelDoc): Promise<string> {
   if (encPassword) return encryptBody(JSON.stringify(doc), encPassword)
   if (sealBodyKey) return sealBody(JSON.stringify(doc), await sealBodyKey)
-  return JSON.stringify(doc)
+  return docText(doc)
 }
 
 export async function serializeDocInto(shell: Document, doc: KernelDoc): Promise<string> {

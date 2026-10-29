@@ -18,7 +18,12 @@ import {
   saveFile as kernelSaveFile,
   serializeAuto as kernelSerializeAuto,
   serializeFile as kernelSerializeFile,
+  registerDocText,
 } from '../../kernel/src/save.ts'
+import { docText } from './doclayout'
+
+// FORK: picture data on its own last line of #bento-doc (doclayout.ts)
+registerDocText(docText)
 import type { BentoDoc } from './model'
 import { pruneUnusedAssets } from './assets'
 import { adoptBuiltinFonts } from './fonts'

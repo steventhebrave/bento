@@ -45,9 +45,28 @@ export function readDoc(html) {
   return doc
 }
 
+/**
+ * The text of #bento-doc: compact JSON with the picture data, `assets`, LAST
+ * and on its own line — identical to the app's (slides/src/doclayout.ts;
+ * scripts/test-slides-doc-layout.ts pins the two), so a packed deck reads like
+ * a saved one: an agent can stop before the line that starts "assets".
+ */
+export function docText(doc) {
+  const { assets, ...rest } = doc
+  const head = JSON.stringify(rest)
+  if (assets === undefined) return head
+  return `${head.slice(0, -1)}${head === '{}' ? '' : ','}\n"assets":${JSON.stringify(assets)}}`
+}
+
+/** The document with `assets` moved to the end (deck.json's order: pictures last). */
+export const assetsLast = (doc) => {
+  const { assets, ...rest } = doc
+  return assets === undefined ? rest : { ...rest, assets }
+}
+
 export function spliceDoc(shell, doc) {
   if (!BLOCK.test(shell)) throw new Error('the shell has no #bento-doc block')
-  const json = JSON.stringify(doc).replace(/</g, '\\u003c')
+  const json = docText(doc).replace(/</g, '\\u003c')
   // a replacer FUNCTION, so `$&` and friends in the JSON stay literal
   return shell.replace(BLOCK, () => `<script type="application/bento+json" id="bento-doc">\n${json}\n</scr` + 'ipt>')
 }
@@ -129,7 +148,7 @@ function extract(file, dir) {
     entry.src = `@file scripts/${name}.js`
     n++
   }
-  writeFileSync(join(dir, 'deck.json'), JSON.stringify(doc, null, 2) + '\n')
+  writeFileSync(join(dir, 'deck.json'), JSON.stringify(assetsLast(doc), null, 2) + '\n')
   console.log(`extracted ${relative(process.cwd(), join(dir, 'deck.json'))}${n ? ` and ${n} script(s) into ${relative(process.cwd(), join(dir, 'scripts'))}/` : ''}`)
 }
 
@@ -192,7 +211,7 @@ function scaffold(dir, name, kind) {
   if (existsSync(file)) die(`${file} already exists`)
   writeFileSync(file, TEMPLATES[kind](name))
   doc.scripts = { ...(doc.scripts ?? {}), [name]: { src: `@file scripts/${name}.js` } }
-  writeFileSync(deckPath, JSON.stringify(doc, null, 2) + '\n')
+  writeFileSync(deckPath, JSON.stringify(assetsLast(doc), null, 2) + '\n')
   console.log(`wrote ${relative(process.cwd(), file)} and registered "${name}" in deck.json`)
 }
 

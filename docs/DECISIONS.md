@@ -12147,3 +12147,45 @@ the file — no network — still learns them, and names `deck-code.mjs`
 extract/pack as an OPTIONAL route: editing the JSON block in place stays
 valid. When the fork's work moves to main, the three URLs change together;
 scripts/test-slides-schema.ts pins them.
+
+## 2026-10-29 — FORK: a saved deck writes its picture data last, on its own line
+
+A deck's `#bento-doc` was one line of JSON, and a 4K picture made it megabytes
+of base64 mixed in with the slides: an agent reading line by line (the note at
+the top of the file is the first thing it meets) could not stop partway
+through a line, so it either got a truncated document or the whole picture.
+Now the plain save writes `{…everything else…,` then a line break, then
+`"assets":{…}}` — `assets` always the LAST key, on its own line — and the note
+and guide say: stop before the line that starts `"assets":`, or load the JSON
+and drop the key. No pictures, no second line: the text is then exactly
+`JSON.stringify(doc)`, as before.
+
+- **Format and files: unchanged.** The line break is JSON whitespace; every
+  parser reads the same document — older shells, vanilla's, the frozen
+  updaters' text splice (the splice contract asks only for plaintext JSON
+  with `<` escaped). A vanilla shell re-saving such a deck simply writes one
+  line again; nothing is lost either way.
+- **Kernel footprint: one opt-in hook.** The kernel stringified the document
+  itself on both plain save paths (serializeWith, encodeDocBody), and its
+  saveFile writes to disk internally, so the slides facade could reorder keys
+  but never place a line break. `registerDocText(fn)` (kernel/src/save.ts,
+  modelled on registerShellBlocks) defaults to `JSON.stringify`; those two
+  lines call it; slides registers `doclayout.docText`. Encrypted and sealed
+  bodies are ciphertext and untouched. Vanilla's other apps register nothing
+  and are byte-identical.
+- **Merging upstream:** the conflict surface is those two call sites plus the
+  added function. If upstream edits either line, the merge conflicts loudly
+  (resolve by keeping `docText(doc)`). The quiet risk is upstream ADDING a
+  new plain save path with its own `JSON.stringify(doc)`: decks written by it
+  would be valid but one line, and the note would be wrong for them —
+  scripts/test-slides-doc-layout.ts fails on any `serializeBody(shell,
+  JSON.stringify(` in kernel/src/save.ts, so the merge would surface it. The
+  hook is generic enough to offer upstream, which would remove the
+  divergence entirely.
+- Rejected: picture data in separate `application/bento+asset` blocks (more
+  machinery for the same agent benefit) and linked files beside the deck (a
+  folder per deck, a permission prompt per session, and deck code could not
+  be read from disk without one).
+
+Rigs: scripts/test-slides-doc-layout.ts; the background-picture browser rig
+checks the layout of a real save.

@@ -105,6 +105,25 @@ Two ways to work with it:
    In the browser console: `window.bento.doc` (read) /
    `window.bento.loadDoc(json)` (write, undoable).
 
+**Reading a deck without its pictures (this fork).** Picture data lives only
+in the top-level `assets` map (elements say `"src": "asset:<key>"`), and a
+saved deck always writes it LAST and on its OWN line. Inside the
+`#bento-doc` block that is:
+
+```
+{"$schema":…,"format":"bento/slides",…,"slides":[…],"scripts":{…},
+"assets":{"a-3f2a":"data:image/jpeg;base64,/9j/4AAQ…"}}
+```
+
+A 4K picture makes the second line megabytes long — far more than you can
+read — so never read it: stop at the line that starts `"assets":`, or load the
+JSON with a tool and drop the key (`jq 'del(.assets)'`; in Python
+`doc.pop('assets', None)`), then put it back unchanged when you write. To add a
+picture, add one entry to `assets` and reference it as `asset:<key>`.
+`node scripts/deck-code.mjs extract` writes `deck.json` one value per line with
+`assets` last, so the same rule holds there. A deck with no pictures is a
+single line.
+
 ---
 
 ## Make a GREAT deck, not just a correct one

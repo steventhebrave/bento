@@ -716,6 +716,12 @@ names provisional.
   docs/agents.md and schema/slides.json on branch ccr-6ab0e2f2-nxmnan — not
   bento.page, whose schema rejects the fork's fields. The three URLs (note's
   guide, note's schema, SCHEMA_URL) move TOGETHER; test-slides-schema pins them.
+  FORK: a saved deck's `#bento-doc` is the document on ONE line, then — if it
+  has pictures — `"assets":…` LAST on its OWN line (slides/src/doclayout.ts,
+  registered with the kernel's opt-in `registerDocText` hook in save.ts;
+  deck-code.mjs carries an identical copy). The note tells agents to stop
+  before that line. Any new plain save path must go through the hook —
+  test-slides-doc-layout pins it.
 
 ## Commands
 

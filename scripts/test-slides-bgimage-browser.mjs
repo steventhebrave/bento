@@ -22,6 +22,8 @@
 //   4. a new slide takes it while every slide shares it — not once they differ
 //   5. the save keeps its asset, and the file's thumbnail preview carries it
 //   6. the show paints it, filling the slide
+//   5b. in the saved file the picture data is its own LAST line ("assets":…),
+//      the line an agent stops before (doclayout.ts)
 //   7. "Remove" takes it off one slide; "Remove from all slides" off every
 //      one, and the next save drops its bytes
 //   8. a picture bigger than 4K is stored at exactly 3840×2160 (the
@@ -163,6 +165,11 @@ console.log('\nthe saved file')
 const saved = await page.evaluate(() => window.bento.serialize())
 const json = JSON.parse(saved.match(/<script[^>]*id="bento-doc"[^>]*>([\s\S]*?)<\/script>/)[1])
 ok(json.slides[0].backgroundImage === ref && json.assets?.[key] === d.assets[key], 'the save keeps the picture and its bytes')
+// the layout agents rely on (doclayout.ts): the document on one line, then the
+// picture data on its own last line, starting "assets":
+const blockLines = saved.match(/<script[^>]*id="bento-doc"[^>]*>([\s\S]*?)<\/script>/)[1].trim().split('\n')
+ok(blockLines.length === 2 && blockLines[1].startsWith('"assets":') && !blockLines[0].includes(d.assets[key].slice(0, 60)),
+  `in the file the picture data is its own LAST line, starting "assets": (${blockLines.map((l) => l.length).join(' + ')} chars)`)
 const preview = saved.match(/<div[^>]*data-bento-preview[\s\S]*?<script data-bento-preview/)?.[0] ?? ''
 ok(preview.includes('bento-slide-bg') && /background-size:\s*cover/.test(preview), 'the file\'s thumbnail preview carries it, filling the page', preview.length)
 
@@ -190,8 +197,10 @@ await all.click()
 await page.waitForTimeout(200)
 d = await model()
 ok(d.slides.every((s) => !s.backgroundImage), 'and it takes the picture off every slide')
-const after = JSON.parse((await page.evaluate(() => window.bento.serialize())).match(/<script[^>]*id="bento-doc"[^>]*>([\s\S]*?)<\/script>/)[1])
+const afterBlock = (await page.evaluate(() => window.bento.serialize())).match(/<script[^>]*id="bento-doc"[^>]*>([\s\S]*?)<\/script>/)[1].trim()
+const after = JSON.parse(afterBlock)
 ok(!after.assets?.[key], 'the next save drops its bytes')
+ok(!after.assets && afterBlock.split('\n').length === 1, 'and with no pictures left the document is a single line again')
 
 console.log('\na picture bigger than 4K')
 // 4800×2700, more than 4K: stored at 4K UHD exactly (the background cap), not

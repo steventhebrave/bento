@@ -8,8 +8,8 @@
 //     motionPath: { path }  (translate along an SVG path, relative),
 //     plain numeric props on non-element targets (countUp state objects)
 //   vars: duration (s), delay (s), ease (a name — 'none'|'linear'|'power1..3.
-//         in/out/inOut'|'sine.*'|CSS keywords|'back.*' — or a CSS-style
-//         cubic-bezier [x1, y1, x2, y2]; see ease.ts), repeat (-1 = forever),
+//         in/out/inOut'|'sine.*'|'spring'|CSS keywords|'back.*' — or a
+//         CSS-style cubic-bezier [x1, y1, x2, y2]; see ease.ts), repeat (-1 = forever),
 //         yoyo, transformOrigin,
 //         onUpdate, onComplete
 //   anim.killTweensOf(target | targets), anim.getTweensOf(target) → .progress()
@@ -230,6 +230,13 @@ function samplePath(d: string, speeds?: number[]): ((t: number) => { x: number; 
 }
 
 // --- the tween -----------------------------------------------------------------
+
+/** An ease by name, evaluated at linear progress t (unknown names are
+ *  linear, as in a tween). For a tween that must stay in step with another
+ *  one riding a DIFFERENT ease: drive one linear clock and derive both. */
+export function ease(e: Ease, t: number): number {
+  return easeFn(e, 'linear')(t)
+}
 
 export interface TweenVars {
   duration?: number

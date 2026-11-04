@@ -84,6 +84,10 @@ export const EASES: Readonly<Record<string, EaseFn>> = {
   'sine.in': (t) => 1 - Math.cos((t * Math.PI) / 2),
   'sine.out': (t) => Math.sin((t * Math.PI) / 2),
   'sine.inOut': (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+  // Underdamped harmonic spring: f(0)=0, f'(0)≈0, crosses 1 at t≈0.68,
+  // overshoots gently (~1.8% at t≈0.78), and settles to f(1)=1, f'(1)=0.
+  // We only overshoot gently, given `overflow:hidden` elements tend to get clipped during animations.
+  'spring': (t) => 1 - (1 - t) ** 2 * (Math.cos(Math.PI * t) + 0.625 * Math.sin(Math.PI * t)),
   ...Object.fromEntries(Object.entries(BEZIER_PRESETS).map(([k, b]) => [k, cubicBezier(b[0], b[1], b[2], b[3])])),
 }
 

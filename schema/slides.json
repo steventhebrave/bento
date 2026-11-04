@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/steventhebrave/bento/ccr-6ab0e2f2-nxmnan/schema/slides.json",
   "title": "bento/slides document",
   "description": "The #bento-doc JSON of a Bento Slides file, generated from the app's validation tables. Guide: https://bento.page/agents.md",
-  "x-bento-version": "1.2.10",
+  "x-bento-version": "1.2.12",
   "$ref": "#/$defs/doc",
   "$defs": {
     "prop-fx": {
@@ -368,6 +368,9 @@
         "link": {
           "$ref": "#/$defs/prop-link"
         },
+        "locked": {
+          "type": "boolean"
+        },
         "morphId": {
           "type": "string",
           "maxLength": 200,
@@ -635,6 +638,9 @@
         "link": {
           "$ref": "#/$defs/prop-link"
         },
+        "locked": {
+          "type": "boolean"
+        },
         "morphId": {
           "type": "string",
           "maxLength": 200,
@@ -839,6 +845,9 @@
         "link": {
           "$ref": "#/$defs/prop-link"
         },
+        "locked": {
+          "type": "boolean"
+        },
         "morphId": {
           "type": "string",
           "maxLength": 200,
@@ -970,6 +979,9 @@
         },
         "link": {
           "$ref": "#/$defs/prop-link"
+        },
+        "locked": {
+          "type": "boolean"
         },
         "markup": {
           "type": "string",
@@ -1104,6 +1116,9 @@
         },
         "link": {
           "$ref": "#/$defs/prop-link"
+        },
+        "locked": {
+          "type": "boolean"
         },
         "morphId": {
           "type": "string",
@@ -1361,6 +1376,9 @@
         "link": {
           "$ref": "#/$defs/prop-link"
         },
+        "locked": {
+          "type": "boolean"
+        },
         "morphId": {
           "type": "string",
           "maxLength": 200,
@@ -1501,6 +1519,9 @@
         },
         "link": {
           "$ref": "#/$defs/prop-link"
+        },
+        "locked": {
+          "type": "boolean"
         },
         "loop": {
           "type": "boolean"
@@ -1657,6 +1678,9 @@
           "$ref": "#/$defs/prop-link"
         },
         "live": {
+          "type": "boolean"
+        },
+        "locked": {
           "type": "boolean"
         },
         "morphId": {
@@ -1821,6 +1845,9 @@
         "link": {
           "$ref": "#/$defs/prop-link"
         },
+        "locked": {
+          "type": "boolean"
+        },
         "morphId": {
           "type": "string",
           "maxLength": 200,
@@ -1955,6 +1982,9 @@
         },
         "link": {
           "$ref": "#/$defs/prop-link"
+        },
+        "locked": {
+          "type": "boolean"
         },
         "morphId": {
           "type": "string",
